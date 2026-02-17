@@ -1,8 +1,8 @@
 // src/pages/ProductDetails.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchProductById } from "../api/publicAPI";
-import BuyModal from "../components/Buy"; // <-- new component
+import BuyModal from "../components/Buy";
 import "./ProductDetails.css";
 
 const ProductDetails = () => {
@@ -103,7 +103,13 @@ const ProductDetails = () => {
     e.target.src = "https://placehold.co/900x700/EEE/31343C?text=Product+Image";
   };
 
-  const totalPrice = product ? product.price * quantity : 0;
+  const totalPrice = useMemo(() => {
+    if (!product) return 0;
+    return Number(product.price || 0) * Number(quantity || 1);
+  }, [product, quantity]);
+
+  const decQty = () => setQuantity((prev) => Math.max(1, prev - 1));
+  const incQty = () => setQuantity((prev) => prev + 1);
 
   if (loading) {
     return (
@@ -143,35 +149,27 @@ const ProductDetails = () => {
       {/* Premium Card */}
       <div className="pd-card">
         <div className="pd-grid">
-          {/* Image */}
-          {/* Image */}
-<div className="pd-imageWrap">
-  <img
-    src={product.image_url}
-    alt={product.name}
-    className="pd-image"
-    onError={handleImageError}
-    loading="lazy"
-  />
+          {/* LEFT: Image */}
+          <div className="pd-imageWrap">
+            <div className="pd-imageFrame">
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="pd-image"
+                onError={handleImageError}
+                loading="lazy"
+              />
+            </div>
 
-  {/* 🔥 Primary CTA under image */}
-  <button
-    className="pd-btn pd-btn-primary pd-buy-under-image"
-    onClick={handleBuyNow}
-    disabled={!user}
-  >
-    Buy Now
-  </button>
+            {/* Trust chips (premium feel) */}
+            <div className="pd-trustRow">
+              <span className="pd-chip">Genuine</span>
+              <span className="pd-chip">Fast delivery</span>
+              <span className="pd-chip">Easy returns</span>
+            </div>
+          </div>
 
-  {!user && (
-    <div className="pd-image-loginHint">
-      Login required to purchase
-    </div>
-  )}
-</div>
-
-
-          {/* Content */}
+          {/* RIGHT: Content */}
           <div className="pd-content">
             <div className="pd-top">
               <div>
@@ -193,18 +191,14 @@ const ProductDetails = () => {
               <div className="pd-qtyRow">
                 <button
                   className="pd-qtyBtn"
-                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  onClick={decQty}
                   disabled={quantity <= 1}
                   aria-label="Decrease quantity"
                 >
                   −
                 </button>
                 <span className="pd-qty">{quantity}</span>
-                <button
-                  className="pd-qtyBtn"
-                  onClick={() => setQuantity((prev) => prev + 1)}
-                  aria-label="Increase quantity"
-                >
+                <button className="pd-qtyBtn" onClick={incQty} aria-label="Increase quantity">
                   +
                 </button>
               </div>
@@ -227,23 +221,32 @@ const ProductDetails = () => {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="pd-actions">
-              <button className="pd-btn pd-btn-soft" onClick={addToCart}>
-                Add to Cart
-              </button>
+            {/* ✅ Desktop Sticky Actions (always visible on scroll) */}
+            <div className="pd-stickyActions">
+              <div className="pd-ctaRow">
+                <button className="pd-btn pd-btn-soft pd-cta" onClick={addToCart}>
+                  Add to Cart
+                </button>
 
-              
+                <button
+                  className="pd-btn pd-btn-primary pd-cta"
+                  onClick={handleBuyNow}
+                  disabled={!user}
+                  title={!user ? "Login required" : "Buy now"}
+                >
+                  Buy Now
+                </button>
+              </div>
 
               {!user ? (
                 <div className="pd-loginHint">
-                  Please login to continue checkout.
+                  Login required to checkout.
                   <button className="pd-linkBtn" onClick={() => navigate("/")}>
                     Login
                   </button>
                 </div>
               ) : (
-                <button className="pd-btn pd-btn-outline" onClick={() => navigate("/account")}>
+                <button className="pd-btn pd-btn-outline pd-viewCart" onClick={() => navigate("/account")}>
                   View Cart
                 </button>
               )}
@@ -252,7 +255,44 @@ const ProductDetails = () => {
         </div>
       </div>
 
-      {/* Buy Modal (separate component + separate CSS) */}
+      {/* ✅ Mobile Bottom Sticky Bar (always visible) */}
+      <div className="pd-bottomBar">
+        <div className="pd-bottomInfo">
+          <div className="pd-bottomTotal">
+            <span className="pd-bottomLabel">Total</span>
+            <b>₹{totalPrice.toFixed(2)}</b>
+          </div>
+
+          <div className="pd-bottomQty">
+            <button className="pd-miniQtyBtn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease quantity">
+              −
+            </button>
+            <span className="pd-miniQty">{quantity}</span>
+            <button className="pd-miniQtyBtn" onClick={incQty} aria-label="Increase quantity">
+              +
+            </button>
+          </div>
+        </div>
+
+        <div className="pd-bottomBtns">
+          <button className="pd-btn pd-btn-soft pd-bottomBtn" onClick={addToCart}>
+            Add to Cart
+          </button>
+
+          <button
+            className="pd-btn pd-btn-primary pd-bottomBtn"
+            onClick={handleBuyNow}
+            disabled={!user}
+            title={!user ? "Login required" : "Buy now"}
+          >
+            Buy Now
+          </button>
+        </div>
+
+        {!user && <div className="pd-bottomHint">Login required to purchase</div>}
+      </div>
+
+      {/* Buy Modal */}
       <BuyModal
         open={showBuy}
         onClose={() => setShowBuy(false)}
@@ -261,7 +301,6 @@ const ProductDetails = () => {
         user={user}
         onSuccess={() => {
           setShowBuy(false);
-          // You can redirect after success:
           navigate("/");
         }}
       />

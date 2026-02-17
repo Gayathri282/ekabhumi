@@ -1,11 +1,16 @@
 /* src/pages/ProductDetails.css */
 :root{
   --orange:#F26722;
-  --orangeSoft:#FF9A66; /* light orange */
+  --orangeSoft:#F2A254; /* brand light orange */
   --dark:#2E2E2F;
   --bg:#FFFFFF;
   --line: rgba(46,46,47,0.12);
+
+  --softBg: #FFF7F2;         /* soft orange tint */
+  --softBg2: #FDF1EA;
+
   --shadow: 0 18px 50px rgba(46,46,47,0.10);
+  --shadow2: 0 10px 30px rgba(46,46,47,0.10);
 }
 
 *{ box-sizing:border-box; }
@@ -14,9 +19,10 @@
   min-height: 100vh;
   background: var(--bg);
   color: var(--dark);
-  padding: 18px 14px 40px;
+  padding: 18px 14px 120px; /* ✅ extra space for mobile bottom bar */
 }
 
+/* ================= HEADER ================= */
 .pd-header{
   max-width: 1100px;
   margin: 0 auto 14px;
@@ -32,6 +38,7 @@
   letter-spacing: 0.2px;
 }
 
+/* ================= CARD / GRID ================= */
 .pd-card{
   max-width: 1100px;
   margin: 0 auto;
@@ -48,49 +55,49 @@
   gap: 0;
 }
 
+/* ================= LEFT (IMAGE) ================= */
 .pd-imageWrap{
-  background: linear-gradient(180deg, rgba(242,103,34,0.08), rgba(255,154,102,0.05));
-  padding: 16px;
+  background: linear-gradient(180deg, rgba(242,103,34,0.08), rgba(242,162,84,0.06));
+  padding: 18px;
   display:flex;
-  flex-direction:column;   /* ✅ important so button sits under image */
-  align-items:center;
+  flex-direction:column;
+  gap: 12px;
   justify-content:center;
 }
 
-/* ================= Buy Now under image ================= */
-
-.pd-buy-under-image{
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px 0;
-  font-size: 16px;
-  border-radius: 14px;
-  box-shadow: 0 10px 28px rgba(242,103,34,0.35);
+.pd-imageFrame{
+  background: rgba(255,255,255,0.8);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: var(--shadow2);
 }
-
-.pd-buy-under-image:disabled{
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Optional hint under button */
-.pd-image-loginHint{
-  margin-top: 8px;
-  font-size: 12.5px;
-  opacity: 0.75;
-  text-align: center;
-}
-
 
 .pd-image{
   width: 100%;
-  height: 100%;
   max-height: 520px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 14px;
-  border: 1px solid var(--line);
+  border-radius: 12px;
+  display:block;
 }
 
+.pd-trustRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap: 8px;
+}
+
+.pd-chip{
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(46,46,47,0.10);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ================= RIGHT (CONTENT) ================= */
 .pd-content{
   padding: 18px 18px 16px;
   display:flex;
@@ -120,7 +127,7 @@
 
 .pd-price{
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 900;
   color: var(--orange);
   white-space: nowrap;
 }
@@ -141,9 +148,10 @@
   font-size: 14.5px;
   line-height: 1.65;
   opacity: 0.95;
-  white-space: pre-line; /* shows full description properly */
+  white-space: pre-line;
 }
 
+/* Quantity */
 .pd-qtyRow{
   display:flex;
   align-items:center;
@@ -151,8 +159,8 @@
 }
 
 .pd-qtyBtn{
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: #fff;
@@ -169,7 +177,7 @@
 .pd-qty{
   min-width: 34px;
   text-align:center;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .pd-note{
@@ -178,6 +186,7 @@
   opacity: 0.78;
 }
 
+/* Summary */
 .pd-summary{
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -196,21 +205,15 @@
   border-top: 1px dashed rgba(46,46,47,0.25);
   margin-top: 6px;
   padding-top: 10px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.pd-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap: 10px;
-  align-items:center;
-}
-
+/* Buttons */
 .pd-btn{
   border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 700;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
   cursor: pointer;
   background: #fff;
   color: var(--dark);
@@ -220,11 +223,15 @@
   background: var(--orange);
   color: #fff;
   border-color: var(--orange);
+  box-shadow: 0 12px 28px rgba(242,103,34,0.28);
 }
+
+.pd-btn-primary:hover{ filter: brightness(0.98); }
 
 .pd-btn-primary:disabled{
   opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .pd-btn-soft{
@@ -243,15 +250,125 @@
   background: transparent;
   border: none;
   color: var(--orange);
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
   padding: 0;
 }
 
-.pd-loginHint{
+/* ================= Desktop Sticky Actions ================= */
+.pd-stickyActions{
+  position: sticky;
+  top: 92px;              /* ✅ stays visible while scrolling */
+  z-index: 3;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(46,46,47,0.08);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 10px 25px rgba(46,46,47,0.08);
+}
+
+.pd-ctaRow{
+  display:flex;
+  gap: 10px;
+}
+
+.pd-cta{
+  flex: 1;
+}
+
+.pd-viewCart{
   width: 100%;
+  margin-top: 10px;
+}
+
+.pd-loginHint{
+  margin-top: 10px;
   font-size: 12.8px;
-  opacity: 0.9;
+  opacity: 0.92;
+}
+
+/* ================= Mobile Bottom Sticky Bar ================= */
+.pd-bottomBar{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(46,46,47,0.12);
+  padding: 10px 12px 12px;
+  display: none; /* ✅ only on mobile */
+}
+
+.pd-bottomInfo{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pd-bottomTotal{
+  display:flex;
+  flex-direction:column;
+  line-height: 1.1;
+}
+
+.pd-bottomLabel{
+  font-size: 12px;
+  opacity: 0.7;
+  font-weight: 700;
+}
+
+.pd-bottomQty{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  border: 1px solid rgba(46,46,47,0.12);
+  border-radius: 999px;
+  padding: 6px 8px;
+  background: rgba(242,103,34,0.05);
+}
+
+.pd-miniQtyBtn{
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(46,46,47,0.10);
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pd-miniQtyBtn:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pd-miniQty{
+  min-width: 18px;
+  text-align:center;
+  font-weight: 900;
+}
+
+.pd-bottomBtns{
+  display:flex;
+  gap: 10px;
+}
+
+.pd-bottomBtn{
+  flex: 1;
+  border-radius: 14px;
+  padding: 14px 12px;
+}
+
+.pd-bottomHint{
+  margin-top: 8px;
+  font-size: 12.5px;
+  opacity: 0.75;
+  text-align:center;
 }
 
 /* Loading / error */
@@ -273,10 +390,14 @@
 
 @keyframes pdspin { to { transform: rotate(360deg); } }
 
-/* Responsive */
+/* ================= Responsive ================= */
 @media (max-width: 900px){
   .pd-grid{ grid-template-columns: 1fr; }
-  .pd-image{ max-height: 420px; }
   .pd-header{ flex-direction:column; align-items:flex-start; }
   .pd-title{ font-size: 18px; }
+  .pd-image{ max-height: 420px; }
+
+  /* ✅ On mobile, use bottom bar instead of sticky panel */
+  .pd-stickyActions{ display: none; }
+  .pd-bottomBar{ display: block; }
 }
