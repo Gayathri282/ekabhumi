@@ -665,3 +665,22 @@ body{
   .product-image{ height:300px !important; }
 }
 
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-login-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.review-login-link:hover {
+  opacity: 1;
+}

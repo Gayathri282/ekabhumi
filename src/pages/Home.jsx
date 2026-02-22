@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "./Home.css";
 import About from "./About";
 import Blog from "./Blog";
@@ -294,31 +294,52 @@ const Home = () => {
         </div>
 
         <div className="auth-section desktop-only">
-          {user ? (
-            <div className="user-nav">
-              <button className="accountBtn" title="Account" type="button" onClick={() => navigate("/account")}>
-                {user.profile_pic ? (
-                  <img src={user.profile_pic} alt="Account" className="accountAvatar" referrerPolicy="no-referrer" />
-                ) : (
-                  <User size={20} />
-                )}
-              </button>
+  {user ? (
+    <div className="user-nav">
+      <button
+        className="accountBtn"
+        title="Account"
+        type="button"
+        onClick={() => navigate("/account")}
+      >
+        {user.profile_pic ? (
+          <img
+            src={user.profile_pic}
+            alt="Account"
+            className="accountAvatar"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <User size={20} />
+        )}
+      </button>
 
-              <span className="user-greeting">Hi, {user.name}</span>
+      <span className="user-greeting">Hi, {user.name}</span>
 
-              {user.isAdmin === true && (
-                <button className="admin-dashboard-btn" onClick={goToAdminDashboard}>
-                  Admin Dashboard
-                </button>
-              )}
-            </div>
-          ) : (
-            <button className="login-nav-btn" onClick={handleGoogleLogin}>
-              Login
-            </button>
-          )}
-        </div>
+      {user.isAdmin === true && (
+        <button className="admin-dashboard-btn" onClick={goToAdminDashboard}>
+          Admin Dashboard
+        </button>
+      )}
+    </div>
+  ) : (
+    <div className="auth-actions">
+      <button className="login-nav-btn" onClick={handleGoogleLogin}>
+        Login
+      </button>
 
+      {/* ✅ Razorpay reviewer entry point */}
+      <button
+        type="button"
+        className="review-login-link"
+        onClick={() => navigate("/review-login")}
+        title="Reviewer Login"
+      >
+        Reviewer Login
+      </button>
+    </div>
+  )}
+</div>
         {isMobile && <MobileRightButton />}
 
       </nav>
