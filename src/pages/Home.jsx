@@ -500,9 +500,7 @@ const Home = () => {
         <About />
       </section>
 
-      <section id="blog" className="pageSection">
-        <Blog />
-      </section>
+     
 
       
 
