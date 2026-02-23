@@ -71,7 +71,7 @@ const Footer = () => {
                 </div>
                 <div className="contact-item">
                   <i className="fas fa-envelope"></i>
-                  <span>info@ekabhumih.com</span>
+                  <span>bhumihlifestyle@gmail.com</span>
                 </div>
                 <div className="contact-item">
               
