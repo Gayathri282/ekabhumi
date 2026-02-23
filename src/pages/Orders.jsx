@@ -5,7 +5,24 @@ function money(n) {
   return Number(n || 0).toFixed(2);
 }
 
-// ✅ added selectedIds + onToggleSelect (optional props)
+// ✅ Helper to format the order_date from the DB
+function formatOrderDate(dateString) {
+  if (!dateString) return "-";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch (e) {
+    return dateString;
+  }
+}
+
 function Orders({
   orders = [],
   onApprove,
@@ -49,12 +66,12 @@ function Orders({
               <div className="orderTopLeft">
                 <div className="orderId">Order #{o.id}</div>
                 <div className="orderSub">
-                  {o.customer_email || "-"} • ₹{money(o.total_amount)}
+                  {/* ✅ Added Date & Time here next to the price */}
+                  {formatOrderDate(o.order_date)} • ₹{money(o.total_amount)}
                 </div>
               </div>
 
               <div className="orderTopRight">
-                {/* ✅ checkbox only for approved tab */}
                 {isApprovedMode && (
                   <label
                     className="orderSelect"
@@ -83,6 +100,11 @@ function Orders({
             {isOpen && (
               <div className="orderExpand">
                 <div className="grid2">
+                  {/* ✅ Detailed Date Row */}
+                  <div className="kv">
+                    <div className="k">Order Placed</div>
+                    <div className="v">{formatOrderDate(o.order_date)}</div>
+                  </div>
                   <div className="kv">
                     <div className="k">Customer</div>
                     <div className="v">{o.customer_name || "-"}</div>
@@ -104,15 +126,20 @@ function Orders({
                     <div className="v">₹{money(o.unit_price)}</div>
                   </div>
                   <div className="kv">
-                    <div className="k">Total</div>
+                    <div className="k">Total Amount</div>
                     <div className="v strong">₹{money(o.total_amount)}</div>
+                  </div>
+                  {/* ✅ Pincode Row (New) */}
+                  <div className="kv">
+                    <div className="k">Pincode</div>
+                    <div className="v">{o.pincode || "-"}</div>
                   </div>
                 </div>
 
                 <div className="addrBox">
                   <div className="addrTitle">Shipping Address</div>
                   <div className="addrText">
-                    {o.shipping_address || "❌ Shipping address missing from order"}
+                    {o.shipping_address || "❌ Shipping address missing"}
                   </div>
                 </div>
 
@@ -133,7 +160,9 @@ function Orders({
                       Approve & Send Email
                     </button>
                   ) : (
-                    <div className="approvedHint">This order is approved.</div>
+                    <div className="approvedHint">
+                      This order was approved on {formatOrderDate(o.updated_at)}.
+                    </div>
                   )}
                 </div>
               </div>
