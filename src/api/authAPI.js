@@ -1,47 +1,40 @@
 // src/api/authAPI.js
 const API_URL = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
 
-// Google OAuth login
-export const googleLogin = async (idToken) => {
+// Google OAuth login -> backend expects { token: "<google_id_token>" }
+// This function will ALSO persist the JWT in localStorage.
+export const googleLogin = async (googleIdToken) => {
   const res = await fetch(`${API_URL}/auth/google`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ id_token: idToken }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: googleIdToken }),
   });
+
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: 'Login failed' }));
-    throw new Error(error.detail || 'Login failed');
+    throw new Error(data.detail || "Login failed");
   }
 
-  return res.json();
-};
-
-// Check user session
-export const checkSession = async (token) => {
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: {
-      "Authorization": `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error('Session expired');
+  if (data?.access_token) {
+    localStorage.setItem("accessToken", data.access_token);
+  }
+  if (data?.role) {
+    localStorage.setItem("role", data.role);
   }
 
-  return res.json();
+  return data; // { access_token, token_type, role, expires_in }
 };
 
-// Logout
-export const logout = async (token) => {
-  const res = await fetch(`${API_URL}/auth/logout`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-    },
-  });
+// Minimal "session" check: confirm token exists locally.
+export const hasSession = () => {
+  const token = localStorage.getItem("accessToken");
+  return Boolean(token);
+};
 
-  return res.ok;
+// Logout = delete local token
+export const logout = () => {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("role");
+  return true;
 };

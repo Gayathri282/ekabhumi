@@ -1,35 +1,59 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchOrdersByEmail } from "../api/publicAPI";
+import { fetchMyOrders, fetchOrderByToken } from "../api/publicAPI";
 import "./Account.css";
 
 function money(n) {
   return Number(n || 0).toFixed(2);
 }
 
-function calcGST(subtotal, gstPercent) {
-  return (Number(subtotal || 0) * Number(gstPercent || 0)) / 100;
-}
-
 function isAdminApproved(status) {
   const s = String(status || "").toLowerCase();
-  // ✅ Decide "approved" purely from existing status string
   return ["confirmed", "approved", "shipped", "out_for_delivery", "delivered"].includes(s);
+}
+
+function getGuestOrderTokens() {
+  // Finds keys like: order_token_123 -> tokenValue
+  const result = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (!k.startsWith("order_token_")) continue;
+
+    const idPart = k.replace("order_token_", "");
+    const orderId = Number(idPart);
+    const token = localStorage.getItem(k);
+
+    if (!Number.isFinite(orderId) || orderId <= 0) continue;
+    if (!token || token.length < 10) continue;
+
+    result.push({ orderId, token, storageKey: k });
+  }
+  // latest first
+  result.sort((a, b) => b.orderId - a.orderId);
+  return result;
 }
 
 export default function Account() {
   const navigate = useNavigate();
-
   const [tab, setTab] = useState("orders"); // "orders" | "cart"
-  const [user, setUser] = useState(null);
 
-  // Orders
-  const [orders, setOrders] = useState([]);
-  const [ordersLoading, setOrdersLoading] = useState(true);
-  const [ordersError, setOrdersError] = useState("");
+  // Auth
+  const token = localStorage.getItem("accessToken");
+  const role = localStorage.getItem("role") || "guest";
+
+  // Orders (logged-in)
+  const [myOrders, setMyOrders] = useState([]);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersError, setMyOrdersError] = useState("");
+
+  // Orders (guest tracking)
+  const [guestOrders, setGuestOrders] = useState([]);
+  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestError, setGuestError] = useState("");
+
+  // Shared order modal
   const [selectedOrder, setSelectedOrder] = useState(null);
-
-  // ✅ Modal open/close
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   // Cart (simple localStorage cart)
@@ -41,51 +65,82 @@ export default function Account() {
     }
   });
 
-  const GST_PERCENT = 18;
-  const SHIPPING_FEE = 0;
-
   const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("userData");
-    localStorage.removeItem("adminToken");
-    navigate("/");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("role");
+    navigate("/", { replace: true });
   };
 
-  // Load user
+  // Load my orders when logged in
   useEffect(() => {
-    const raw = localStorage.getItem("userData");
-    if (!raw) {
-      navigate("/");
+    if (!token) {
+      setMyOrders([]);
+      setMyOrdersError("");
       return;
     }
-    try {
-      setUser(JSON.parse(raw));
-    } catch {
-      navigate("/");
-    }
-  }, [navigate]);
-
-  // Load orders
-  useEffect(() => {
-    if (!user?.email) return;
 
     (async () => {
       try {
-        setOrdersLoading(true);
-        setOrdersError("");
-
-        const data = await fetchOrdersByEmail(user.email);
-        const list = Array.isArray(data) ? data : [];
-        setOrders(list);
+        setMyOrdersLoading(true);
+        setMyOrdersError("");
+        const data = await fetchMyOrders();
+        setMyOrders(Array.isArray(data) ? data : []);
       } catch (e) {
-        setOrdersError(e?.message || "Failed to load orders");
+        // If JWT expired, you can auto-logout (optional)
+        setMyOrdersError(e?.message || "Failed to load your orders");
       } finally {
-        setOrdersLoading(false);
+        setMyOrdersLoading(false);
       }
     })();
-  }, [user?.email]);
+  }, [token]);
 
-  // ✅ Close modal on ESC
+  // Load guest tracked orders (always try)
+  useEffect(() => {
+    const tokens = getGuestOrderTokens();
+    if (tokens.length === 0) {
+      setGuestOrders([]);
+      setGuestError("");
+      return;
+    }
+
+    (async () => {
+      try {
+        setGuestLoading(true);
+        setGuestError("");
+
+        // fetch all guest orders (in parallel)
+        const results = await Promise.allSettled(
+          tokens.map(({ orderId, token }) => fetchOrderByToken(orderId, token))
+        );
+
+        const ok = [];
+        const badKeys = [];
+
+        results.forEach((r, idx) => {
+          const meta = tokens[idx];
+          if (r.status === "fulfilled") {
+            ok.push(r.value);
+          } else {
+            // token might be wrong/expired, remove it so it doesn't keep failing forever
+            badKeys.push(meta.storageKey);
+          }
+        });
+
+        // remove invalid tokens silently (optional but practical)
+        badKeys.forEach((k) => localStorage.removeItem(k));
+
+        // latest first (by id)
+        ok.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        setGuestOrders(ok);
+      } catch (e) {
+        setGuestError(e?.message || "Failed to load tracked orders");
+      } finally {
+        setGuestLoading(false);
+      }
+    })();
+  }, []);
+
+  // Close modal on ESC
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key === "Escape") setIsOrderModalOpen(false);
@@ -109,22 +164,10 @@ export default function Account() {
     saveCart(cart.filter((x) => x.id !== id));
   }
 
-  // Cart totals
   const cartSubtotal = useMemo(
     () => cart.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.qty || 1), 0),
     [cart]
   );
-  const cartGst = useMemo(() => calcGST(cartSubtotal, GST_PERCENT), [cartSubtotal]);
-  const cartTotal = useMemo(() => cartSubtotal + cartGst + SHIPPING_FEE, [cartSubtotal, cartGst]);
-
-  // Selected order totals
-  const orderSubtotal = useMemo(() => {
-    if (!selectedOrder) return 0;
-    return Number(selectedOrder.total_amount || 0);
-  }, [selectedOrder]);
-
-  const orderGst = useMemo(() => calcGST(orderSubtotal, GST_PERCENT), [orderSubtotal]);
-  const orderTotal = useMemo(() => orderSubtotal + orderGst + SHIPPING_FEE, [orderSubtotal, orderGst]);
 
   function openOrder(o) {
     setSelectedOrder(o);
@@ -135,17 +178,35 @@ export default function Account() {
     setIsOrderModalOpen(false);
   }
 
-  if (!user) return null;
-
   const approved = isAdminApproved(selectedOrder?.status);
+
+  // Combine display: show my orders first, then guest orders not already included
+  const displayedOrders = useMemo(() => {
+    const a = Array.isArray(myOrders) ? myOrders : [];
+    const b = Array.isArray(guestOrders) ? guestOrders : [];
+    const seen = new Set(a.map((x) => String(x?.id)));
+    const uniqueGuest = b.filter((x) => !seen.has(String(x?.id)));
+    return [...a, ...uniqueGuest];
+  }, [myOrders, guestOrders]);
+
+  const ordersLoading = myOrdersLoading || guestLoading;
+  const ordersError = myOrdersError || guestError;
 
   return (
     <div className="account-wrap">
       <div className="account-header">
         <div>
-          <h2>My Account</h2>
+          <h2>Orders & Tracking</h2>
           <div className="muted">
-            {user.name} • {user.email}
+            {token ? (
+              <>
+                Logged in • Role: <b>{role}</b>
+              </>
+            ) : (
+              <>
+                Guest mode • Showing orders placed on this device (tracking tokens)
+              </>
+            )}
           </div>
         </div>
 
@@ -159,26 +220,37 @@ export default function Account() {
             </button>
           </div>
 
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
-          </button>
+          {token ? (
+            <button className="logout-btn" onClick={handleLogout}>
+              Logout
+            </button>
+          ) : (
+            <button className="logout-btn" onClick={() => navigate("/admin/login")}>
+              Admin Login
+            </button>
+          )}
         </div>
       </div>
 
       {tab === "orders" && (
         <div className="orders-layout">
           <div className="panel">
-            <h3>My Orders</h3>
+            <h3>{token ? "My Orders" : "Tracked Orders"}</h3>
 
             {ordersLoading ? (
               <div className="muted">Loading orders…</div>
             ) : ordersError ? (
               <div className="error">{ordersError}</div>
-            ) : orders.length === 0 ? (
-              <div className="muted">No orders yet.</div>
+            ) : displayedOrders.length === 0 ? (
+              <div className="muted">
+                No orders found.
+                <div style={{ marginTop: 8 }}>
+                  If you just placed an order, it will appear here on this device (guest), or under your login (user).
+                </div>
+              </div>
             ) : (
               <div className="order-list vertical">
-                {orders.map((o) => (
+                {displayedOrders.map((o) => (
                   <button
                     key={o.id}
                     className="order-card"
@@ -201,7 +273,6 @@ export default function Account() {
             )}
           </div>
 
-          {/* ✅ Order Details Popup */}
           {isOrderModalOpen && (
             <div className="modalOverlay" onClick={closeModal} role="presentation">
               <div
@@ -215,9 +286,7 @@ export default function Account() {
                   <div>
                     <div className="modalTitle">Order Details</div>
                     <div className="muted small">
-                      {selectedOrder?.order_date
-                        ? new Date(selectedOrder.order_date).toLocaleString()
-                        : "-"}
+                      {selectedOrder?.order_date ? new Date(selectedOrder.order_date).toLocaleString() : "-"}
                     </div>
                   </div>
                   <button className="modalClose" onClick={closeModal} aria-label="Close">
@@ -229,7 +298,6 @@ export default function Account() {
                   <div className="muted">Select an order to view details.</div>
                 ) : (
                   <>
-                    {/* ✅ Show this ONLY after admin approved */}
                     {approved ? (
                       <div className="infoBanner success">
                         ✅ Order confirmed — product will arrive in <b>3 days</b>.
@@ -243,31 +311,19 @@ export default function Account() {
                     <div className="details-grid">
                       <div>
                         <div className="muted">Order ID</div>
-                        <div>
-                          <b>#{selectedOrder.id}</b>
-                        </div>
+                        <div><b>#{selectedOrder.id}</b></div>
                       </div>
                       <div>
                         <div className="muted">Status</div>
-                        <div>
-                          <b>{selectedOrder.status}</b>
-                        </div>
+                        <div><b>{selectedOrder.status}</b></div>
                       </div>
                       <div>
                         <div className="muted">Payment</div>
-                        <div>
-                          <b>{selectedOrder.payment_status}</b>
-                        </div>
+                        <div><b>{selectedOrder.payment_status}</b></div>
                       </div>
                       <div>
-                        <div className="muted">Ordered At</div>
-                        <div>
-                          <b>
-                            {selectedOrder.order_date
-                              ? new Date(selectedOrder.order_date).toLocaleString()
-                              : "-"}
-                          </b>
-                        </div>
+                        <div className="muted">Total (server)</div>
+                        <div><b>₹{money(selectedOrder.total_amount)}</b></div>
                       </div>
                     </div>
 
@@ -281,30 +337,7 @@ export default function Account() {
                       </span>
                     </div>
 
-                    <hr />
-
-                    <h4>Billing</h4>
-                    <div className="bill">
-                      <div className="row">
-                        <span>Subtotal</span>
-                        <span>₹{money(orderSubtotal)}</span>
-                      </div>
-                      <div className="row">
-                        <span>GST ({GST_PERCENT}%)</span>
-                        <span>₹{money(orderGst)}</span>
-                      </div>
-                      <div className="row">
-                        <span>Shipping</span>
-                        <span>₹{money(SHIPPING_FEE)}</span>
-                      </div>
-                      <hr />
-                      <div className="row total">
-                        <span>Total</span>
-                        <span>₹{money(orderTotal)}</span>
-                      </div>
-                    </div>
-
-                    <div className="addr">
+                    <div className="addr" style={{ marginTop: 12 }}>
                       <div>
                         <b>Delivery Address:</b> {selectedOrder.shipping_address}
                       </div>
@@ -346,9 +379,7 @@ export default function Account() {
                 {cart.map((it) => (
                   <div key={it.id} className="cart-item">
                     <div className="cart-left">
-                      <div>
-                        <b>{it.name}</b>
-                      </div>
+                      <div><b>{it.name}</b></div>
                       <div className="muted">₹{money(it.price)}</div>
                     </div>
 
@@ -372,19 +403,6 @@ export default function Account() {
                 <div className="row">
                   <span>Subtotal</span>
                   <span>₹{money(cartSubtotal)}</span>
-                </div>
-                <div className="row">
-                  <span>GST ({GST_PERCENT}%)</span>
-                  <span>₹{money(cartGst)}</span>
-                </div>
-                <div className="row">
-                  <span>Shipping</span>
-                  <span>₹{money(SHIPPING_FEE)}</span>
-                </div>
-                <hr />
-                <div className="row total">
-                  <span>Total</span>
-                  <span>₹{money(cartTotal)}</span>
                 </div>
               </div>
             </>

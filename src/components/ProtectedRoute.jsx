@@ -3,23 +3,20 @@ import { Navigate } from "react-router-dom";
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   if (!requireAdmin) return children;
 
-  const adminToken = localStorage.getItem("adminToken");
-  const userDataRaw = localStorage.getItem("userData");
+  const token = localStorage.getItem("accessToken");
+  const raw = localStorage.getItem("userData");
 
   let user = null;
   try {
-    user = userDataRaw ? JSON.parse(userDataRaw) : null;
+    user = raw ? JSON.parse(raw) : null;
   } catch {
     localStorage.removeItem("userData");
   }
 
-  // ✅ must be admin user (NOT just token)
-  const isAdminUser = !!user && (user.role === "admin" || user.isAdmin === true);
+  const isAdminUser = user?.role === "admin";
 
-  // ✅ require BOTH: token + admin user
-  if (!adminToken || !isAdminUser) {
-    // clean up (prevents non-admin gmail sticking around)
-    localStorage.removeItem("adminToken");
+  if (!token || !isAdminUser) {
+    localStorage.removeItem("accessToken");
     localStorage.removeItem("userData");
     return <Navigate to="/admin" replace />;
   }

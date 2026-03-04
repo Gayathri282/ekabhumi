@@ -2,24 +2,25 @@ import { useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID; // set this in Vercel env
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 function AdminLogin() {
   const navigate = useNavigate();
 
-  // Auto-redirect if already admin
+  // Redirect if already logged in as admin
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    const userData = localStorage.getItem("userData");
-    if (!token || !userData) return;
+    const token = localStorage.getItem("accessToken");
+    const raw = localStorage.getItem("userData");
+
+    if (!token || !raw) return;
 
     try {
-      const user = JSON.parse(userData);
-      if (user?.role === "admin" || user?.isAdmin === true) {
+      const user = JSON.parse(raw);
+      if (user?.role === "admin") {
         navigate("/admin/dashboard", { replace: true });
       }
     } catch {
-      localStorage.removeItem("adminToken");
+      localStorage.removeItem("accessToken");
       localStorage.removeItem("userData");
     }
   }, [navigate]);
@@ -27,7 +28,6 @@ function AdminLogin() {
   const onGoogleCredential = useCallback(
     async (credential) => {
       try {
-        // Call backend
         const res = await fetch(`${API_BASE}/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -37,16 +37,26 @@ function AdminLogin() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.detail || "Login failed");
 
-        // data: { access_token, role, email }
+        // expected: { access_token, role, token_type }
+        if (!data?.access_token) throw new Error("Missing access token from server");
+
+        // If not admin, do not persist anything
         if (data.role !== "admin") {
-          localStorage.removeItem("adminToken");
+          localStorage.removeItem("accessToken");
           localStorage.removeItem("userData");
-          alert("❌ Not authorized. This admin panel is restricted.");
+          alert("❌ Not authorized. Admin only.");
           return;
         }
 
-        localStorage.setItem("adminToken", data.access_token);
-        localStorage.setItem("userData", JSON.stringify({ email: data.email, role: data.role }));
+        // ✅ Single token + userData
+        localStorage.setItem("accessToken", data.access_token);
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            role: data.role,
+            email: data.email || null, // backend may not send this; keep it optional
+          })
+        );
 
         navigate("/admin/dashboard", { replace: true });
       } catch (e) {
@@ -57,10 +67,8 @@ function AdminLogin() {
   );
 
   useEffect(() => {
-    // You must include Google Identity Services script in index.html:
-    // <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     if (!window.google) return;
+
     if (!GOOGLE_CLIENT_ID) {
       console.error("Missing REACT_APP_GOOGLE_CLIENT_ID");
       return;
@@ -71,15 +79,14 @@ function AdminLogin() {
       callback: (resp) => onGoogleCredential(resp.credential),
     });
 
-    // Render button inside #googleBtn
-    window.google.accounts.id.renderButton(document.getElementById("googleBtn"), {
+    const el = document.getElementById("googleBtn");
+    if (!el) return;
+
+    window.google.accounts.id.renderButton(el, {
       theme: "outline",
       size: "large",
       width: 260,
     });
-
-    // Optional: auto prompt
-    // window.google.accounts.id.prompt();
   }, [onGoogleCredential]);
 
   return (

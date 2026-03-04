@@ -3,10 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Home from "./pages/Home";
 import ProductDetails from "./pages/ProductDetails.jsx";
 
-import AdminLogin from "./pages/AdminLogin"; // ✅ you created this
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 
+import TrackOrder from "./pages/TrackOrder";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import RefundAndCancellation from "./pages/RefundAndCancellation";
@@ -20,6 +21,9 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/products/:id" element={<ProductDetails />} />
 
+       <Route path="/track-order/:orderId" element={<TrackOrder />} />
+<Route path="/track-order" element={<TrackOrder />} />
+
         {/* -------------------- POLICIES ------------------ */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
@@ -27,7 +31,6 @@ function App() {
         <Route path="/shipping-and-delivery" element={<ShippingAndDelivery />} />
 
         {/* -------------------- ADMIN LOGIN ---------------- */}
-        {/* ✅ ONLY place where Google login exists */}
         <Route path="/admin" element={<AdminLogin />} />
 
         {/* -------------------- ADMIN PROTECTED ------------ */}

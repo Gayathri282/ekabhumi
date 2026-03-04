@@ -1,15 +1,19 @@
 // src/api/publicAPI.js
-const API_BASE =
-  process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
-
+const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
 const getUrl = (endpoint) => API_BASE + endpoint;
 
+// Only ONE token key for the whole app
 const getAuthHeaders = () => {
-  const token =
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("token");
-
+  const token = localStorage.getItem("accessToken");
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const handleJson = async (res, defaultErr = "Request failed") => {
+  const text = await res.text().catch(() => "");
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch {}
+  if (!res.ok) throw new Error(data.detail || data.message || text || `${defaultErr} (${res.status})`);
+  return data;
 };
 
 export async function fetchProducts() {
@@ -17,18 +21,12 @@ export async function fetchProducts() {
     headers: {
       Accept: "application/json",
       "Cache-Control": "no-cache",
-      ...getAuthHeaders(),
     },
     mode: "cors",
     credentials: "omit",
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`fetchProducts failed: ${res.status} ${text}`);
-  }
-
-  const data = await res.json();
+  const data = await handleJson(res, "fetchProducts failed");
 
   return (Array.isArray(data) ? data : []).map((p) => {
     let imageUrl = p.image_url;
@@ -38,8 +36,7 @@ export async function fetchProducts() {
     if (imageUrl.startsWith("http")) return { ...p, image_url: imageUrl };
 
     if (!imageUrl.startsWith("/")) imageUrl = "/" + imageUrl;
-    if (imageUrl.includes("res.cloudinary.com"))
-      return { ...p, image_url: `https:${imageUrl}` };
+    if (imageUrl.includes("res.cloudinary.com")) return { ...p, image_url: `https:${imageUrl}` };
 
     return { ...p, image_url: `${API_BASE}${imageUrl}` };
   });
@@ -47,78 +44,79 @@ export async function fetchProducts() {
 
 export async function fetchProductById(id) {
   const res = await fetch(getUrl(`/products/${id}`), {
-    headers: {
-      Accept: "application/json",
-      ...getAuthHeaders(),
-    },
+    headers: { Accept: "application/json" },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to fetch product: ${res.status} ${text}`);
-  }
-
-  return await res.json();
+  return handleJson(res, "Failed to fetch product");
 }
 
-
+/**
+ * PUBLIC: Create order
+ * Backend returns: { order: {...}, public_token: "..." }
+ */
 export async function createOrder(orderData) {
   const res = await fetch(getUrl("/orders"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify(orderData),
   });
 
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(errorText || `Failed to create order (${res.status})`);
-  }
-
-  return await res.json();
+  return handleJson(res, "Failed to create order");
 }
 
-export async function fetchOrdersByEmail(email) {
-  const res = await fetch(getUrl(`/orders?email=${encodeURIComponent(email)}`), {
-    headers: { Accept: "application/json", ...getAuthHeaders() },
+/**
+ * USER: Get my orders (requires JWT)
+ */
+export async function fetchMyOrders() {
+  const res = await fetch(getUrl("/orders/me"), {
+    headers: {
+      Accept: "application/json",
+      ...getAuthHeaders(),
+    },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to fetch orders: ${res.status} ${text}`);
-  }
-
-  return await res.json();
+  return handleJson(res, "Failed to fetch my orders");
 }
 
+/**
+ * PUBLIC: Get order by id + public_token
+ * GET /orders/{orderId}?token=PUBLIC_TOKEN
+ */
+export async function fetchOrderByToken(orderId, publicToken) {
+  if (!orderId) throw new Error("Missing order id");
+  if (!publicToken) throw new Error("Missing order token");
 
-export async function createRazorpayOrder({ dbOrderId, amountInr, email, phone }) {
-  const url = getUrl("/payments/razorpay/create-order");
+  const res = await fetch(
+    getUrl(`/orders/${encodeURIComponent(orderId)}?token=${encodeURIComponent(publicToken)}`),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    }
+  );
 
-  const res = await fetch(url, {
+  return handleJson(res, "Failed to fetch order");
+}
+
+/**
+ * PUBLIC: Create Razorpay order for an existing DB order
+ * Backend expects: { order_id, email, phone }
+ */
+export async function createRazorpayOrder({ order_id, email, phone }) {
+  const res = await fetch(getUrl("/payments/razorpay/create-order"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...getAuthHeaders(),
     },
-    body: JSON.stringify({
-      order_id: dbOrderId,
-      amount: amountInr,
-      email,
-      phone,
-    }),
+    body: JSON.stringify({ order_id, email, phone }),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Failed to create Razorpay order (${res.status})`);
-  }
-
-  return await res.json();
+  return handleJson(res, "Failed to create Razorpay order");
 }
 
 export async function verifyRazorpayPayment({
@@ -127,14 +125,11 @@ export async function verifyRazorpayPayment({
   razorpay_payment_id,
   razorpay_signature,
 }) {
-  const url = getUrl("/payments/razorpay/verify");
-
-  const res = await fetch(url, {
+  const res = await fetch(getUrl("/payments/razorpay/verify"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       dbOrderId,
@@ -144,10 +139,5 @@ export async function verifyRazorpayPayment({
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Payment verification failed (${res.status})`);
-  }
-
-  return await res.json();
+  return handleJson(res, "Payment verification failed");
 }

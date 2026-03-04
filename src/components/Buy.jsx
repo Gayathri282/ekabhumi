@@ -1,43 +1,50 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import "./Buy.css";
 
-import {
-  createOrder,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
-} from "../api/publicAPI";
+import { createOrder, createRazorpayOrder, verifyRazorpayPayment } from "../api/publicAPI";
 
-// Helper for manual shipping calculation
+// UI-only shipping estimate (backend is source of truth)
 const getShippingCharge = (pincode) => {
   if (!pincode || pincode.length < 2) return 0;
 
   const prefix = pincode.substring(0, 2);
   const firstDigit = pincode[0];
 
-  // KERALA: Pincodes starting with 67, 68, 69
-  if (["67", "68", "69"].includes(prefix)) {
-    return 50;
-  }
+  // Kerala: 67, 68, 69
+  if (["67", "68", "69"].includes(prefix)) return 50;
 
-  // SOUTH INDIA: Karnataka (56-59), TN (60-64), AP/Telangana (50-53)
+  // South: AP/Telangana (50-53), Karnataka (56-59), TN (60-64)
   const southPrefixes = [
-    "50", "51", "52", "53", "56", "57", "58", "59", "60", "61", "62", "63", "64"
+    "50", "51", "52", "53",
+    "56", "57", "58", "59",
+    "60", "61", "62", "63", "64",
   ];
-  if (southPrefixes.includes(prefix)) {
-    return 80;
-  }
+  if (southPrefixes.includes(prefix)) return 80;
 
-  // REST OF INDIA
+  // Rest of India (estimate)
   switch (firstDigit) {
-    case "1": case "2": return 120; // North (Delhi, UP, etc.)
-    case "3": case "4": return 100; // West/Central (Maharashtra, Gujarat)
-    case "7": case "8": return 150; // East/NE (WB, Assam, Bihar)
-    default: return 100;
+    case "1":
+    case "2":
+      return 120;
+    case "3":
+    case "4":
+      return 100;
+    case "7":
+    case "8":
+      return 150;
+    default:
+      return 100;
   }
 };
 
 const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
   const [orderLoading, setOrderLoading] = useState(false);
+
+  // server total (after /orders create)
+  const [serverTotal, setServerTotal] = useState(null); // number | null
+
+  // prevent double verify
+  const verifiedRef = useRef(false);
 
   const [orderForm, setOrderForm] = useState({
     fullName: "",
@@ -50,20 +57,26 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
     notes: "",
   });
 
-  // Calculate delivery fee dynamically as user types
-  const deliveryFee = useMemo(() => {
-    return getShippingCharge(orderForm.pincode);
-  }, [orderForm.pincode]);
+  // UI estimate only
+  const deliveryFeeEstimate = useMemo(
+    () => getShippingCharge(orderForm.pincode),
+    [orderForm.pincode]
+  );
 
-  // Grand Total: (Product Price * Qty) + Delivery Fee
-  const totalPrice = useMemo(() => {
+  // UI estimate only
+  const totalPriceEstimate = useMemo(() => {
     if (!product) return 0;
     const base = Number(product.price || 0) * Number(quantity || 1);
-    return base + deliveryFee;
-  }, [product, quantity, deliveryFee]);
+    return base + Number(deliveryFeeEstimate || 0);
+  }, [product, quantity, deliveryFeeEstimate]);
 
   useEffect(() => {
     if (!open) return;
+
+    // reset state each open
+    setServerTotal(null);
+    verifiedRef.current = false;
+
     setOrderForm((prev) => ({
       ...prev,
       fullName: user?.name || prev.fullName || "",
@@ -102,8 +115,7 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
   };
 
   const validateForm = () => {
-    const { fullName, phoneNumber, email, address, city, state, pincode } =
-      orderForm;
+    const { fullName, phoneNumber, email, address, city, state, pincode } = orderForm;
 
     if (!fullName.trim()) return alert("Please enter your full name"), false;
     if (!phoneNumber.trim() || !/^\d{10}$/.test(phoneNumber))
@@ -130,44 +142,58 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
     }
 
     setOrderLoading(true);
+    setServerTotal(null);
+    verifiedRef.current = false;
 
     try {
-      const orderData = {
+      // ✅ PUBLIC order payload only (server computes price + shipping)
+      const orderPayload = {
         product_id: product.id,
-        product_name: product.name,
-        quantity,
-        unit_price: product.price,
-        total_amount: totalPrice, // ✅ Now includes deliveryFee
+        quantity: Number(quantity || 1),
         customer_name: orderForm.fullName,
         customer_email: orderForm.email,
         customer_phone: orderForm.phoneNumber,
         shipping_address: `${orderForm.address}, ${orderForm.city}, ${orderForm.state} - ${orderForm.pincode}`,
-        notes: orderForm.notes,
-        status: "pending",
-        payment_status: "pending",
-        pincode: orderForm.pincode // ✅ Ensure backend gets this
+        pincode: orderForm.pincode,
+        notes: orderForm.notes || null,
       };
 
-      // 1) Create DB order
-      const created = await createOrder(orderData);
-      const dbOrderId = created?.id;
+      // 1) Create DB order -> { order, public_token }
+      const created = await createOrder(orderPayload);
 
-      if (!dbOrderId) {
-        throw new Error("Order creation failed on server.");
+      const orderObj = created?.order;
+      const dbOrderId = orderObj?.id;
+      const publicToken = created?.public_token;
+
+      if (!dbOrderId || !publicToken) {
+        throw new Error("Order creation failed (missing id/token).");
       }
 
-      // 2) Create Razorpay order
+      // store token so customer can track later (guest)
+      localStorage.setItem(`order_token_${dbOrderId}`, publicToken);
+      localStorage.setItem("last_order_id", String(dbOrderId));
+
+      const total = Number(orderObj?.total_amount || 0);
+      if (!total || total <= 0) {
+        throw new Error("Invalid server total. Please try again.");
+      }
+      setServerTotal(total);
+
+      // 2) Create Razorpay order (server uses DB order total)
       const rp = await createRazorpayOrder({
-        dbOrderId,
-        amountInr: orderData.total_amount,
+        order_id: dbOrderId,
         email: orderForm.email,
         phone: orderForm.phoneNumber,
       });
 
-      // 3) Open checkout
+      if (!rp?.razorpayOrderId || !rp?.keyId || !rp?.amount) {
+        throw new Error("Failed to create Razorpay order (bad server response).");
+      }
+
+      // 3) Checkout
       const options = {
         key: rp.keyId,
-        amount: rp.amount,
+        amount: rp.amount, // paise (from backend)
         currency: rp.currency || "INR",
         name: "ELVORA",
         description: `Order #${dbOrderId}`,
@@ -178,6 +204,10 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
           contact: orderForm.phoneNumber,
         },
         handler: async (response) => {
+          // prevent double verify
+          if (verifiedRef.current) return;
+          verifiedRef.current = true;
+
           try {
             await verifyRazorpayPayment({
               dbOrderId,
@@ -190,17 +220,27 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
             onSuccess?.();
             safeClose();
           } catch (e) {
+            console.error(e);
             alert("Payment done, but verification failed. Please contact support.");
           }
         },
-        modal: { ondismiss: () => alert("Payment cancelled.") },
+        modal: {
+          ondismiss: () => {
+            // user closed payment modal
+            alert("Payment cancelled.");
+          },
+        },
+        theme: { color: "#111111" },
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (resp) => alert("❌ Payment failed."));
+      rzp.on("payment.failed", (resp) => {
+        console.error(resp);
+        alert("❌ Payment failed.");
+      });
       rzp.open();
-
     } catch (err) {
+      console.error(err);
       alert(err?.message || "Failed. Please try again.");
     } finally {
       setOrderLoading(false);
@@ -215,38 +255,68 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
             <h2 className="buy-title">Complete Your Order</h2>
             <p className="buy-sub">Secure Checkout • Doorstep Delivery</p>
           </div>
-          <button className="buy-close" onClick={safeClose}>×</button>
+          <button className="buy-close" onClick={safeClose}>
+            ×
+          </button>
         </div>
 
         <div className="buy-body">
           <div className="buy-summary">
             <h3>Order Summary</h3>
+
             <div className="buy-row">
-              <span>{product?.name} (x{quantity})</span>
-              <span>₹{(product?.price * quantity).toFixed(2)}</span>
-            </div>
-            <div className="buy-row">
-              <span>Delivery Charge</span>
-              <span className={deliveryFee > 0 ? "buy-fee-active" : ""}>
-                {deliveryFee > 0 ? `+ ₹${deliveryFee}` : "Enter Pincode"}
+              <span>
+                {product?.name} (x{quantity})
+              </span>
+              <span>
+                ₹{(Number(product?.price || 0) * Number(quantity || 1)).toFixed(2)}
               </span>
             </div>
-            <div className="buy-row buy-total">
-              <span>Grand Total</span>
-              <span>₹{Number(totalPrice).toFixed(2)}</span>
+
+            <div className="buy-row">
+              <span>Delivery Charge (estimate)</span>
+              <span className={deliveryFeeEstimate > 0 ? "buy-fee-active" : ""}>
+                {deliveryFeeEstimate > 0 ? `+ ₹${deliveryFeeEstimate}` : "Enter Pincode"}
+              </span>
             </div>
+
+            <div className="buy-row buy-total">
+              <span>Estimated Total</span>
+              <span>₹{Number(totalPriceEstimate).toFixed(2)}</span>
+            </div>
+
+            <div className="buy-row" style={{ marginTop: 8 }}>
+              <span className="muted" style={{ fontSize: 12 }}>
+                Final payable amount is calculated on server and shown in Razorpay.
+              </span>
+            </div>
+
+            {serverTotal != null && (
+              <div className="buy-row buy-total" style={{ marginTop: 10 }}>
+                <span>Server Total</span>
+                <span>₹{Number(serverTotal).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <div className="buy-form">
             <h3>Shipping Details</h3>
+
             <div className="buy-grid2">
               <div className="buy-field">
                 <label>Full Name *</label>
                 <input name="fullName" value={orderForm.fullName} onChange={handleFormChange} />
               </div>
+
               <div className="buy-field">
                 <label>Phone Number *</label>
-                <input name="phoneNumber" value={orderForm.phoneNumber} onChange={handleFormChange} maxLength={10} />
+                <input
+                  name="phoneNumber"
+                  value={orderForm.phoneNumber}
+                  onChange={handleFormChange}
+                  maxLength={10}
+                  inputMode="numeric"
+                />
               </div>
             </div>
 
@@ -265,13 +335,21 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
                 <label>City *</label>
                 <input name="city" value={orderForm.city} onChange={handleFormChange} />
               </div>
+
               <div className="buy-field">
                 <label>State *</label>
                 <input name="state" value={orderForm.state} onChange={handleFormChange} />
               </div>
+
               <div className="buy-field">
                 <label>Pincode *</label>
-                <input name="pincode" value={orderForm.pincode} onChange={handleFormChange} maxLength={6} inputMode="numeric" />
+                <input
+                  name="pincode"
+                  value={orderForm.pincode}
+                  onChange={handleFormChange}
+                  maxLength={6}
+                  inputMode="numeric"
+                />
               </div>
             </div>
 
@@ -283,9 +361,16 @@ const BuyModal = ({ open, onClose, product, quantity, user, onSuccess }) => {
         </div>
 
         <div className="buy-actions">
-          <button className="buy-btn buy-outline" onClick={safeClose} disabled={orderLoading}>Cancel</button>
+          <button className="buy-btn buy-outline" onClick={safeClose} disabled={orderLoading}>
+            Cancel
+          </button>
+
           <button className="buy-btn buy-primary" onClick={handleSubmit} disabled={orderLoading}>
-            {orderLoading ? "Processing..." : `Pay ₹${Number(totalPrice).toFixed(2)}`}
+            {orderLoading
+              ? "Processing..."
+              : serverTotal != null
+              ? `Pay ₹${Number(serverTotal).toFixed(2)}`
+              : "Proceed to Pay"}
           </button>
         </div>
       </div>
