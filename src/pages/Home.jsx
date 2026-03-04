@@ -74,10 +74,20 @@ const Home = () => {
   const closeMenu = () => setMenuOpen(false);
 
   // ── Google credential handler ───────────────────────────────────────────────
-  const handleCredential = useCallback(async (googleIdToken) => {
+ const handleCredential = useCallback(async (googleIdToken) => {
     setLoginLoading(true);
     try {
       const data = await googleLogin(googleIdToken);
+
+      // If admin, store as adminToken too and redirect
+      if (data?.role === "admin") {
+        localStorage.setItem("adminToken", data.access_token);
+        localStorage.setItem("userData", JSON.stringify({ role: "admin", email: data.email }));
+        window.google?.accounts?.id?.cancel();
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+
       setIsLoggedIn(true);
       setUserEmail(data?.email || "");
       setShowLoginDropdown(false);
@@ -87,8 +97,8 @@ const Home = () => {
     } finally {
       setLoginLoading(false);
     }
-  }, []);
-
+  }, [navigate]);
+  
   // ── init Google script + One Tap ────────────────────────────────────────────
   useEffect(() => {
     const init = () => initGoogleOneTap(handleCredential);
