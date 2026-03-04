@@ -549,3 +549,52 @@
   opacity:0.6;
   cursor:not-allowed;
 }
+ /* ── Add these to your Dashboard.module.css ── */
+
+.reviewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reviewItem {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.reviewPending  { border-left: 3px solid #f5a623; }
+.reviewApproved { border-left: 3px solid #22c55e; }
+
+.reviewMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reviewAuthor { font-weight: 700; font-size: 14px; }
+.reviewEmail  { font-size: 12px; color: #888; }
+.reviewRating { font-size: 14px; color: #f5a623; letter-spacing: 1px; }
+
+.reviewStatus {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.reviewStatusPending  { background: #fff7ed; color: #c2410c; }
+.reviewStatusApproved { background: #f0fdf4; color: #15803d; }
+
+.reviewText {
+  font-size: 14px;
+  color: #374151;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 8px;
+}

@@ -1,3 +1,4 @@
+//componnents/protectedroute.jsx
 import { Navigate } from "react-router-dom";
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {

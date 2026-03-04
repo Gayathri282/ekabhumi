@@ -1,49 +1,142 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchProductById } from "../api/publicAPI";
+import { googleLogin } from "../api/authAPI";
 import BuyModal from "../components/Buy";
 import "./ProductDetails.css";
 
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+// ─── tiny hook: initialise Google One Tap once ───────────────────────────────
+function useGoogleOneTap({ onCredential }) {
+  const cbRef = useRef(onCredential);
+  useEffect(() => { cbRef.current = onCredential; }, [onCredential]);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+
+    const init = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (resp) => cbRef.current?.(resp.credential),
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+    };
+
+    // Script might already be loaded
+    if (window.google?.accounts?.id) { init(); return; }
+
+    // Otherwise wait for it
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (!existing) {
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true;
+      s.defer = true;
+      s.onload = init;
+      document.head.appendChild(s);
+    } else {
+      existing.addEventListener("load", init);
+    }
+  }, []);
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
+  const [product, setProduct]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [showBuy, setShowBuy] = useState(false);
+  const [showBuy, setShowBuy]   = useState(false);
 
+  // auth state — read once, update after login
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    () => Boolean(localStorage.getItem("accessToken"))
+  );
+
+  // if we need login, remember intent so we open BuyModal after
+  const pendingBuyRef = useRef(false);
+
+  // login-in-progress indicator
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError]     = useState("");
+
+  // ── Google credential callback ──────────────────────────────────────────────
+  const handleCredential = useCallback(async (googleIdToken) => {
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      await googleLogin(googleIdToken);           // saves accessToken + role
+      setIsLoggedIn(true);
+
+      if (pendingBuyRef.current) {
+        pendingBuyRef.current = false;
+        setShowBuy(true);                         // open BuyModal now
+      }
+    } catch (e) {
+      setLoginError(e?.message || "Login failed. Please try again.");
+    } finally {
+      setLoginLoading(false);
+      window.google?.accounts?.id?.cancel();      // hide One Tap prompt
+    }
+  }, []);
+
+  useGoogleOneTap({ onCredential: handleCredential });
+
+  // ── load product ────────────────────────────────────────────────────────────
   useEffect(() => {
-    async function loadProduct() {
+    async function load() {
       try {
         setLoading(true);
         const data = await fetchProductById(id);
         setProduct(data);
         setError("");
       } catch (err) {
-        console.error("Failed to load product:", err);
+        console.error(err);
         setError("Failed to load product details. Please try again.");
       } finally {
         setLoading(false);
       }
     }
-    loadProduct();
+    load();
   }, [id]);
 
+  // ── buy now ─────────────────────────────────────────────────────────────────
   const handleBuyNow = () => {
-    // ✅ No login requirement
-    setShowBuy(true);
+    if (isLoggedIn) {
+      setShowBuy(true);
+      return;
+    }
+
+    // Not logged in — trigger Google One Tap then open modal after success
+    pendingBuyRef.current = true;
+    setLoginError("");
+
+    if (!window.google?.accounts?.id) {
+      setLoginError("Google Sign-In is not available. Please refresh and try again.");
+      pendingBuyRef.current = false;
+      return;
+    }
+
+    window.google.accounts.id.prompt((notification) => {
+      // One Tap was suppressed (e.g. user previously dismissed it too many times)
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // Fall back to renderButton flow — show a small inline login UI
+        setLoginError("Please sign in with Google to continue.");
+        pendingBuyRef.current = false;
+      }
+    });
   };
 
-  // --- Cart helpers (localStorage) ---
+  // ── cart helpers ────────────────────────────────────────────────────────────
   const getCart = () => {
-    try {
-      return JSON.parse(localStorage.getItem("cart") || "[]");
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(localStorage.getItem("cart") || "[]"); }
+    catch { return []; }
   };
 
   const saveCart = (next) => {
@@ -53,30 +146,15 @@ const ProductDetails = () => {
 
   const addToCart = () => {
     if (!product) return;
-
     const cart = getCart();
     const existing = cart.find((x) => String(x.id) === String(product.id));
-    let next;
-
-    if (existing) {
-      next = cart.map((x) =>
-        String(x.id) === String(product.id)
-          ? { ...x, qty: Number(x.qty || 1) + Number(quantity || 1) }
-          : x
-      );
-    } else {
-      next = [
-        ...cart,
-       {
-  id: product.id,
-  name: product.name,
-  price: product.price,
-  image_url: product.image_url,
-  qty: Number(quantity || 1),
-},
-      ];
-    }
-
+    const next = existing
+      ? cart.map((x) =>
+          String(x.id) === String(product.id)
+            ? { ...x, qty: Number(x.qty || 1) + Number(quantity || 1) }
+            : x
+        )
+      : [...cart, { id: product.id, name: product.name, price: product.price, image_url: product.image_url, qty: Number(quantity || 1) }];
     saveCart(next);
     alert("✅ Added to cart!");
   };
@@ -86,14 +164,23 @@ const ProductDetails = () => {
     e.target.src = "https://placehold.co/900x700/EEE/31343C?text=Product+Image";
   };
 
-  const totalPrice = useMemo(() => {
-    if (!product) return 0;
-    return Number(product.price || 0) * Number(quantity || 1);
-  }, [product, quantity]);
+  const totalPrice = useMemo(
+    () => Number(product?.price || 0) * Number(quantity || 1),
+    [product, quantity]
+  );
 
-  const decQty = () => setQuantity((prev) => Math.max(1, prev - 1));
-  const incQty = () => setQuantity((prev) => prev + 1);
+  const decQty = () => setQuantity((p) => Math.max(1, p - 1));
+  const incQty = () => setQuantity((p) => p + 1);
 
+  // ── user object for BuyModal (email pre-fill) ───────────────────────────────
+  const userForModal = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("userData");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }, [isLoggedIn]); // re-read after login
+
+  // ── render states ───────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="pd-page">
@@ -119,6 +206,7 @@ const ProductDetails = () => {
     );
   }
 
+  // ── main render ─────────────────────────────────────────────────────────────
   return (
     <div className="pd-page">
       {/* Header */}
@@ -128,6 +216,28 @@ const ProductDetails = () => {
         </button>
         <h1 className="pd-title">Product Details</h1>
       </div>
+
+      {/* Login error / loading banner (only shown when Buy triggers login) */}
+      {loginLoading && (
+        <div className="pd-infoBanner">
+          🔐 Signing you in…
+        </div>
+      )}
+      {loginError && !loginLoading && (
+        <div className="pd-infoBanner pd-infoBanner--error">
+          {loginError}
+          {/* Fallback visible Google button */}
+          <div id="pd-google-btn" style={{ marginTop: 10 }} ref={(el) => {
+            if (!el || !window.google?.accounts?.id) return;
+            window.google.accounts.id.renderButton(el, {
+              theme: "outline",
+              size: "large",
+              text: "signin_with",
+              width: 240,
+            });
+          }} />
+        </div>
+      )}
 
       {/* Premium Card */}
       <div className="pd-card">
@@ -143,7 +253,6 @@ const ProductDetails = () => {
                 loading="lazy"
               />
             </div>
-
             <div className="pd-trustRow">
               <span className="pd-chip">Genuine</span>
               <span className="pd-chip">Fast delivery</span>
@@ -169,46 +278,30 @@ const ProductDetails = () => {
             <div className="pd-section">
               <h3 className="pd-h3">Quantity</h3>
               <div className="pd-qtyRow">
-                <button
-                  className="pd-qtyBtn"
-                  onClick={decQty}
-                  disabled={quantity <= 1}
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </button>
+                <button className="pd-qtyBtn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease quantity">−</button>
                 <span className="pd-qty">{quantity}</span>
-                <button className="pd-qtyBtn" onClick={incQty} aria-label="Increase quantity">
-                  +
-                </button>
+                <button className="pd-qtyBtn" onClick={incQty} aria-label="Increase quantity">+</button>
               </div>
               <p className="pd-note">Choose how many units you want.</p>
             </div>
 
             <div className="pd-summary">
-              <div className="pd-srow">
-                <span>Price (each)</span>
-                <span>₹{product.price}</span>
-              </div>
-              <div className="pd-srow">
-                <span>Quantity</span>
-                <span>{quantity}</span>
-              </div>
-              <div className="pd-srow pd-total">
-                <span>Total</span>
-                <span>₹{totalPrice.toFixed(2)}</span>
-              </div>
+              <div className="pd-srow"><span>Price (each)</span><span>₹{product.price}</span></div>
+              <div className="pd-srow"><span>Quantity</span><span>{quantity}</span></div>
+              <div className="pd-srow pd-total"><span>Total</span><span>₹{totalPrice.toFixed(2)}</span></div>
             </div>
 
-            {/* ✅ Desktop Sticky Actions */}
             <div className="pd-stickyActions">
               <div className="pd-ctaRow">
                 <button className="pd-btn pd-btn-soft pd-cta" onClick={addToCart}>
                   Add to Cart
                 </button>
-
-                <button className="pd-btn pd-btn-primary pd-cta" onClick={handleBuyNow}>
-                  Buy Now
+                <button
+                  className="pd-btn pd-btn-primary pd-cta"
+                  onClick={handleBuyNow}
+                  disabled={loginLoading}
+                >
+                  {loginLoading ? "Signing in…" : "Buy Now"}
                 </button>
               </div>
             </div>
@@ -216,43 +309,38 @@ const ProductDetails = () => {
         </div>
       </div>
 
-      {/* ✅ Mobile Bottom Sticky Bar */}
+      {/* Mobile Bottom Bar */}
       <div className="pd-bottomBar">
         <div className="pd-bottomInfo">
           <div className="pd-bottomTotal">
             <span className="pd-bottomLabel">Total</span>
             <b>₹{totalPrice.toFixed(2)}</b>
           </div>
-
           <div className="pd-bottomQty">
-            <button className="pd-miniQtyBtn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease quantity">
-              −
-            </button>
+            <button className="pd-miniQtyBtn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease quantity">−</button>
             <span className="pd-miniQty">{quantity}</span>
-            <button className="pd-miniQtyBtn" onClick={incQty} aria-label="Increase quantity">
-              +
-            </button>
+            <button className="pd-miniQtyBtn" onClick={incQty} aria-label="Increase quantity">+</button>
           </div>
         </div>
-
         <div className="pd-bottomBtns">
-          <button className="pd-btn pd-btn-soft pd-bottomBtn" onClick={addToCart}>
-            Add to Cart
-          </button>
-
-          <button className="pd-btn pd-btn-primary pd-bottomBtn" onClick={handleBuyNow}>
-            Buy Now
+          <button className="pd-btn pd-btn-soft pd-bottomBtn" onClick={addToCart}>Add to Cart</button>
+          <button
+            className="pd-btn pd-btn-primary pd-bottomBtn"
+            onClick={handleBuyNow}
+            disabled={loginLoading}
+          >
+            {loginLoading ? "Signing in…" : "Buy Now"}
           </button>
         </div>
       </div>
 
-      {/* Buy Modal (user is null now) */}
+      {/* Buy Modal */}
       <BuyModal
         open={showBuy}
         onClose={() => setShowBuy(false)}
         product={product}
         quantity={quantity}
-        user={null}
+        user={userForModal}
         onSuccess={() => {
           setShowBuy(false);
           navigate("/");

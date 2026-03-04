@@ -401,3 +401,19 @@
   .pd-stickyActions{ display: none; }
   .pd-bottomBar{ display: block; }
 }
+
+.pd-infoBanner {
+  background: #f0f4ff;
+  border: 1px solid #c7d4f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0 auto 16px;
+  max-width: 900px;
+  font-size: 14px;
+  text-align: center;
+}
+.pd-infoBanner--error {
+  background: #fff3f3;
+  border-color: #f0c7c7;
+  color: #c0392b;
+}
