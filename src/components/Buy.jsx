@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import "./Buy.css";
 
 import { createOrder, createRazorpayOrder, verifyRazorpayPayment } from "../api/publicAPI";
+import { hasSession } from "../api/authAPI";
 
 // UI-only shipping estimate (backend is source of truth)
 const getShippingCharge = (pincode) => {
@@ -34,9 +35,98 @@ const getShippingCharge = (pincode) => {
   }
 };
 
+// ── Login Gate Modal ──────────────────────────────────────────────────────────
+const LoginGate = ({ onClose, onLoginSuccess }) => {
+  const googleBtnRef = useRef(null);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => {
+    if (!googleBtnRef.current || !window.google?.accounts?.id) return;
+    const t = setTimeout(() => {
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        width: 240,
+      });
+    }, 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Listen for login success from storage (set by Home's handleCredential)
+  useEffect(() => {
+    const check = () => {
+      if (hasSession()) {
+        onLoginSuccess?.();
+      }
+    };
+    window.addEventListener("storage", check);
+    // Poll every 500ms in case storage event doesn't fire in same tab
+    const interval = setInterval(() => {
+      if (hasSession()) {
+        onLoginSuccess?.();
+      }
+    }, 500);
+    return () => {
+      window.removeEventListener("storage", check);
+      clearInterval(interval);
+    };
+  }, [onLoginSuccess]);
+
+  return (
+    <div className="buy-overlay" onMouseDown={onClose}>
+      <div
+        className="buy-modal"
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ maxWidth: 400, padding: "36px 32px", textAlign: "center" }}
+      >
+        {/* Icon */}
+        <div style={{
+          width: 64, height: 64, borderRadius: "50%",
+          background: "#fff3ec", margin: "0 auto 20px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 28,
+        }}>
+          🛍️
+        </div>
+
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>
+          Sign in to Continue
+        </h2>
+        <p style={{ color: "#666", fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
+          Please sign in with Google to place your order and track it later.
+        </p>
+
+        {/* Google Sign In Button */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <div ref={googleBtnRef} />
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            background: "none", border: "none",
+            color: "#999", fontSize: 13, cursor: "pointer",
+            textDecoration: "underline",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── Main BuyModal ─────────────────────────────────────────────────────────────
 const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
   const [orderLoading, setOrderLoading] = useState(false);
   const [serverTotal, setServerTotal]   = useState(null);
+  const [showLoginGate, setShowLoginGate] = useState(false);
   const verifiedRef                     = useRef(false);
 
   const [orderForm, setOrderForm] = useState({
@@ -65,24 +155,35 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
     if (!open) return;
     setServerTotal(null);
     verifiedRef.current = false;
-    setOrderForm({
-      fullName: "",
-      phoneNumber: "",
-      email: "",
-      address: "",
-      city: "",
-      state: "",
-      pincode: "",
-      notes: "",
-    });
+    setShowLoginGate(false);
+
+    // ── Auto-prefill email from logged-in user ──
+    try {
+      const stored = JSON.parse(localStorage.getItem("userData") || "{}");
+      setOrderForm({
+        fullName: stored?.name || "",
+        phoneNumber: "",
+        email: stored?.email || "",
+        address: "",
+        city: "",
+        state: "",
+        pincode: "",
+        notes: "",
+      });
+    } catch {
+      setOrderForm({
+        fullName: "", phoneNumber: "", email: "",
+        address: "", city: "", state: "", pincode: "", notes: "",
+      });
+    }
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || showLoginGate) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  }, [open, showLoginGate]);
 
   const safeClose = useCallback(() => {
     if (orderLoading) return;
@@ -97,6 +198,30 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
   }, [open, orderLoading, safeClose]);
 
   if (!open) return null;
+
+  // ── Show login gate if user clicks Proceed without being logged in ──
+  if (showLoginGate) {
+    return (
+      <LoginGate
+        onClose={() => {
+          setShowLoginGate(false);
+          onClose?.();
+        }}
+        onLoginSuccess={() => {
+          setShowLoginGate(false);
+          // Prefill email after login
+          try {
+            const stored = JSON.parse(localStorage.getItem("userData") || "{}");
+            setOrderForm(prev => ({
+              ...prev,
+              fullName: prev.fullName || stored?.name || "",
+              email: prev.email || stored?.email || "",
+            }));
+          } catch {}
+        }}
+      />
+    );
+  }
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -118,6 +243,13 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
   const handleSubmit = async () => {
     if (orderLoading) return;
     if (!product) return;
+
+    // ── Gate: must be logged in to place order ──
+    if (!hasSession()) {
+      setShowLoginGate(true);
+      return;
+    }
+
     if (!validateForm()) return;
 
     if (!window.Razorpay) {
@@ -152,7 +284,6 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
         throw new Error("Order creation failed (missing id/token).");
       }
 
-      // Store token for guest tracking in /account
       localStorage.setItem(`order_token_${dbOrderId}`, publicToken);
       localStorage.setItem("last_order_id", String(dbOrderId));
 
@@ -196,7 +327,6 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
               razorpay_signature: response.razorpay_signature,
             });
 
-            // Redirect to /account — order will be visible there
             onSuccess?.();
             safeClose();
           } catch (e) {
@@ -205,9 +335,7 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
           }
         },
         modal: {
-          ondismiss: () => {
-            // user closed Razorpay — stay on page, do nothing
-          },
+          ondismiss: () => {},
         },
         theme: { color: "#F26722" },
       };

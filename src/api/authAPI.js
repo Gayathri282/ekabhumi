@@ -29,7 +29,15 @@ export const googleLogin = async (googleIdToken) => {
 // Minimal "session" check: confirm token exists locally.
 export const hasSession = () => {
   const token = localStorage.getItem("accessToken");
-  return Boolean(token);
+  if (!token) return false;
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // Check token not expired
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false; // malformed token
+  }
 };
 
 // Logout = delete local token
@@ -38,3 +46,4 @@ export const logout = () => {
   localStorage.removeItem("role");
   return true;
 };
+

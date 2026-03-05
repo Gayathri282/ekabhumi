@@ -254,7 +254,24 @@ const Home = () => {
           </button>
         )
       ) : (
-        <button className="nav-auth-btn nav-auth-btn--login" onClick={() => setShowLoginDropdown(v => !v)} disabled={loginLoading}>
+        <button
+          className="nav-auth-btn nav-auth-btn--login"
+          onClick={() => setShowLoginDropdown(v => !v)}
+          disabled={loginLoading}
+          style={{
+            background: loginLoading ? "#ccc" : "#F26722",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "8px 20px",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: loginLoading ? "not-allowed" : "pointer",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={e => { if (!loginLoading) e.currentTarget.style.background = "#d4541a"; }}
+          onMouseLeave={e => { if (!loginLoading) e.currentTarget.style.background = "#F26722"; }}
+        >
           {loginLoading ? "Signing in…" : "Sign In"}
         </button>
       )}
@@ -479,14 +496,16 @@ const Home = () => {
         <About />
       </section>
 
+      <section id="blog">
+        <Blog />
+      </section>
+
       {/* ✅ RESTORED: Testimonials and Blog with section IDs for nav links */}
       <section id="testimonials">
         <Testimonial />
       </section>
 
-      <section id="blog">
-        <Blog />
-      </section>
+      
 
       <Footer />
     </>
