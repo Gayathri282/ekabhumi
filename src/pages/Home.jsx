@@ -367,6 +367,8 @@ const Home = () => {
       <section id="about" className="pageSection">
         <About />
       </section>
+      <Blog/>
+      <Testimonial/>
      
       <Footer />
     </>
