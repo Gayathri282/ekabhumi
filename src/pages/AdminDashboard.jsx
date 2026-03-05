@@ -6,11 +6,12 @@ import styles from "./Dashboard.module.css";
 import AddProduct from "./AddProduct";
 import Orders from "./Orders";
 import UpdateProduct from "./UpdateProduct";
+import Reviews from "./Reviews";
 
 function AdminDashboard() {
   const navigate = useNavigate();
 
-  // orders | approved | products | addProduct | updateProduct
+  // orders | approved | products | addProduct | updateProduct | reviews
   const [activeTab, setActiveTab] = useState("orders");
 
   const [products, setProducts]           = useState([]);
@@ -241,6 +242,7 @@ function AdminDashboard() {
     products: "Products",
     addProduct: "Add Product",
     updateProduct: "Update Product",
+    reviews: "Reviews",
   }[activeTab] || "";
 
   if (loading) {
@@ -389,6 +391,13 @@ function AdminDashboard() {
               )}
             </div>
           )}
+
+          {/* Reviews */}
+          {activeTab === "reviews" && (
+            <div className={styles.card}>
+              <Reviews />
+            </div>
+          )}
         </main>
 
         {/* Sidebar */}
@@ -401,6 +410,7 @@ function AdminDashboard() {
               { key: "approved",   label: "Approved Orders", count: approvedOrders.length },
               { key: "products",   label: "Products",        count: products.length },
               { key: "addProduct", label: "Add Product",     count: null },
+              { key: "reviews",    label: "Reviews",         count: null },
             ].map(({ key, label, count }) => (
               <button
                 key={key}

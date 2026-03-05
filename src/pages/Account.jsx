@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchMyOrders, fetchOrderByToken } from "../api/publicAPI";
+import { fetchMyOrders, fetchOrderByToken, fetchProducts } from "../api/publicAPI";
 
 /* ── helpers ─────────────────────────────────────────── */
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
@@ -244,6 +244,19 @@ export default function Account() {
     if (isAdmin) navigate("/admin/dashboard", { replace: true });
   }, [isAdmin, navigate]);
 
+  // Navigate to priority-1 product
+  const goShop = useCallback(async () => {
+    try {
+      const data = await fetchProducts();
+      const sorted = (Array.isArray(data) ? data : []).sort((a, b) => Number(a.priority) - Number(b.priority));
+      const top = sorted.find(p => Number(p.priority) === 1) || sorted[0];
+      if (top?.id) navigate(`/products/${top.id}`);
+      else navigate("/");
+    } catch {
+      navigate("/");
+    }
+  }, [navigate]);
+
   /* fetch paid orders */
   const load = useCallback(async () => {
     setLoading(true);
@@ -357,7 +370,7 @@ export default function Account() {
             <div className="ac-empty">
               <div className="icon">🛍️</div>
               <p><b style={{ color: "#555" }}>No orders yet</b><br />Once you place an order, it'll show up here.</p>
-              <button onClick={() => navigate("/")} style={{ marginTop: 20, background: "#F26722", color: "#fff", border: "none", borderRadius: 50, padding: "12px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Mulish', sans-serif" }}>
+              <button onClick={goShop} style={{ marginTop: 20, background: "#F26722", color: "#fff", border: "none", borderRadius: 50, padding: "12px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Mulish', sans-serif" }}>
                 Shop Now
               </button>
             </div>
