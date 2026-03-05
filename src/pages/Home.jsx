@@ -26,6 +26,9 @@ const Home = () => {
   const [isMobile, setIsMobile]         = useState(window.innerWidth <= 992);
   const [loginLoading, setLoginLoading] = useState(false);
   const [showLoginDropdown, setShowLoginDropdown] = useState(false);
+  const [search, setSearch]             = useState("");
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState("");
 
   const [products, setProducts] = useState(() => {
     try { const c = localStorage.getItem("cachedProducts"); return c ? JSON.parse(c) : []; }
@@ -39,9 +42,9 @@ const Home = () => {
 
   const loginDropdownRef = useRef(null);
   const googleBtnRef     = useRef(null);
+  const trackRef         = useRef(null);
   const navigate         = useNavigate();
 
-  // ── is this user an admin? ──────────────────────────────
   const isAdmin = userData?.role === "admin";
 
   const sortedProducts = useMemo(() => {
@@ -54,6 +57,16 @@ const Home = () => {
     });
   }, [products]);
 
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sortedProducts;
+    return sortedProducts.filter(
+      (p) =>
+        p.name?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q)
+    );
+  }, [sortedProducts, search]);
+
   const closeMenu = () => setMenuOpen(false);
 
   const handleCredential = useCallback(async (googleIdToken) => {
@@ -62,7 +75,6 @@ const Home = () => {
       const data = await googleLogin(googleIdToken);
 
       if (data?.role === "admin") {
-        // ✅ Use accessToken (same key as adminAPI reads)
         localStorage.setItem("accessToken", data.access_token);
         localStorage.setItem("userData", JSON.stringify({ role: "admin", email: data.email, name: data.name || "" }));
         window.google?.accounts?.id?.cancel();
@@ -153,12 +165,17 @@ const Home = () => {
 
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
       const data = await fetchProducts();
       const list = Array.isArray(data) ? data : [];
       setProducts(list);
       localStorage.setItem("cachedProducts", JSON.stringify(list));
+      setError("");
     } catch (err) {
       console.error("Failed to load products", err);
+      if (products.length === 0) setError("Temporary issue loading products.");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -167,7 +184,10 @@ const Home = () => {
     const sync = (e) => { if (e.key === "productsUpdated") loadData(); };
     window.addEventListener("storage", sync);
     window.addEventListener("focus", loadData);
-    return () => { window.removeEventListener("storage", sync); window.removeEventListener("focus", loadData); };
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", loadData);
+    };
   }, [loadData]);
 
   useEffect(() => {
@@ -176,11 +196,29 @@ const Home = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const handleLogoError = (e) => { e.target.onerror = null; e.target.src = "/images/logo-placeholder.png"; };
+  const handleImageError = (e) => {
+    e.target.onerror = null;
+    e.target.src = "https://placehold.co/400x300/EEE/31343C?text=Product+Image";
+  };
+
+  const handleLogoError = (e) => {
+    e.target.onerror = null;
+    e.target.src = "/images/logo-placeholder.png";
+  };
 
   const goToPriorityOneProduct = () => {
     const top = sortedProducts.find((p) => Number(p.priority) === 1) || sortedProducts[0];
     if (top?.id) navigate(`/products/${top.id}`);
+    else document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollCarousel = (dir) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const card = el.querySelector(".product-card");
+    const gap = 16;
+    const step = card ? card.getBoundingClientRect().width + gap : el.clientWidth * 0.85;
+    el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
   const userEmail   = userData?.email || "";
@@ -194,12 +232,10 @@ const Home = () => {
       : <span style={{ fontWeight: 800, fontSize: 15 }}>{userInitial}</span>
   );
 
-  // ── Desktop Auth Button ─────────────────────────────────
   const AuthButton = () => (
     <div className="auth-wrap" ref={loginDropdownRef}>
       {isLoggedIn ? (
         isAdmin ? (
-          // ── Admin: show Dashboard button directly ──────
           <button
             className="nav-auth-btn nav-auth-btn--login"
             onClick={() => navigate("/admin/dashboard")}
@@ -208,7 +244,6 @@ const Home = () => {
             ⚙️ Dashboard
           </button>
         ) : (
-          // ── Regular user: avatar + dropdown ───────────
           <button
             className="nav-auth-btn"
             onClick={() => setShowLoginDropdown(v => !v)}
@@ -224,7 +259,6 @@ const Home = () => {
         </button>
       )}
 
-      {/* Dropdown — only for regular users, not admin */}
       {showLoginDropdown && !isAdmin && (
         <div className="auth-dropdown">
           {isLoggedIn ? (
@@ -272,9 +306,13 @@ const Home = () => {
           }
         </div>
 
+        {/* ✅ RESTORED: Products, Testimonials, Blog nav links */}
         <div className="nav-links desktop-only">
           <a href="#home">Home</a>
+          <a href="#products">Products</a>
           <a href="#about">About</a>
+          <a href="#testimonials">Testimonials</a>
+          <a href="#blog">Blog</a>
         </div>
 
         <div className="desktop-only">
@@ -295,7 +333,6 @@ const Home = () => {
             </div>
 
             <div className="mobileMenuSection">
-              {/* User/Admin card */}
               {isLoggedIn && (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: isAdmin ? "#fff3e8" : "#fff7f2", borderRadius: 14, marginBottom: 12 }}>
                   <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "#F26722", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 17 }}>
@@ -310,14 +347,17 @@ const Home = () => {
                 </div>
               )}
 
+              {/* ✅ RESTORED: All nav links in mobile menu */}
               <a className="mobileMenuItem" href="#home" onClick={closeMenu}>Home</a>
+              <a className="mobileMenuItem" href="#products" onClick={closeMenu}>Products</a>
               <a className="mobileMenuItem" href="#about" onClick={closeMenu}>About</a>
+              <a className="mobileMenuItem" href="#testimonials" onClick={closeMenu}>Testimonials</a>
+              <a className="mobileMenuItem" href="#blog" onClick={closeMenu}>Blog</a>
 
               <div className="mobileMenuDivider" />
 
               {isLoggedIn ? (
                 isAdmin ? (
-                  // ── Admin mobile menu ───────────────────
                   <>
                     <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/admin/dashboard"); }}>
                       ⚙️ Admin Dashboard
@@ -327,7 +367,6 @@ const Home = () => {
                     </button>
                   </>
                 ) : (
-                  // ── Regular user mobile menu ────────────
                   <>
                     <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/account"); }}>
                       My Orders
@@ -364,12 +403,91 @@ const Home = () => {
         </div>
       </section>
 
+      {/* ✅ RESTORED: Products section with search bar and carousel */}
+      <section id="products" className="product-preview">
+        <div className="search-wrap">
+          <div className="search-box">
+            <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search products…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button className="search-clear" onClick={() => setSearch("")} aria-label="Clear search">×</button>
+            )}
+          </div>
+        </div>
+
+        {error && <div className="error-message">⚠️ {error}</div>}
+        {loading && <p className="loading-text">Loading products...</p>}
+
+        {!loading && filteredProducts.length === 0 && !error && (
+          <p style={{ textAlign: "center", color: "#666" }}>
+            {search ? `No products found for "${search}"` : "No products available"}
+          </p>
+        )}
+
+        {!loading && filteredProducts.length > 0 && (
+          <div className="carousel-container">
+            <button className="carousel-arrow prev" onClick={() => scrollCarousel("prev")} type="button" aria-label="Previous">‹</button>
+
+            <div className="carousel-track" ref={trackRef}>
+              {filteredProducts.map((p) => {
+                const qty = Number(p.quantity ?? 0);
+                const availableSoon = qty <= 0;
+                const onView = () => { if (availableSoon) return; navigate(`/products/${p.id}`); };
+
+                return (
+                  <div className="product-card" key={p.id}>
+                    {availableSoon && <div className="available-soon-badge">Available Soon</div>}
+                    <img
+                      src={p.image_url}
+                      alt={p.name}
+                      className="product-image"
+                      onError={handleImageError}
+                      loading="lazy"
+                    />
+                    <div className="product-info">
+                      <span className="product-name">{p.name}</span>
+                      <button
+                        className={`view-details-btn ${availableSoon ? "isDisabled" : ""}`}
+                        onClick={onView}
+                        type="button"
+                        disabled={availableSoon}
+                        title={availableSoon ? "Available soon" : "View details"}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button className="carousel-arrow next" onClick={() => scrollCarousel("next")} type="button" aria-label="Next">›</button>
+          </div>
+        )}
+      </section>
+
       <section id="about" className="pageSection">
         <About />
       </section>
-      <Blog/>
-      <Testimonial/>
-     
+
+      {/* ✅ RESTORED: Testimonials and Blog with section IDs for nav links */}
+      <section id="testimonials">
+        <Testimonial />
+      </section>
+
+      <section id="blog">
+        <Blog />
+      </section>
+
       <Footer />
     </>
   );
