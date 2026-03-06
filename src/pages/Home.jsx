@@ -319,7 +319,7 @@ const Home = () => {
         <div className="logo">
           {!scrolled
             ? <img src="/images/logo.png" alt="Eka Bhumi" className="logo-img" onError={handleLogoError} />
-            : <span className="text-logo">EKABHUMI</span>
+            : <span className="text-logo">EKABHUMIH</span>
           }
         </div>
 
@@ -502,14 +502,16 @@ const Home = () => {
         <About />
       </section>
 
+      <section id="blog">
+        <Blog />
+      </section>
+
       {/* ✅ RESTORED: Testimonials and Blog with section IDs for nav links */}
       <section id="testimonials">
         <Testimonial onLogin={handleCredential} />
       </section>
 
-      <section id="blog">
-        <Blog />
-      </section>
+      
 
       <Footer />
     </>

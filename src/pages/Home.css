@@ -172,7 +172,7 @@ body{
 /* ===================== HERO — DESKTOP ===================== */
 .hero{
   width:100%;
-  height:calc(100vh - 80px);
+  height:clamp(420px, 55vw, calc(100vh - 80px));
   margin-top:80px;
   position:relative;
   overflow:hidden;
@@ -191,11 +191,12 @@ body{
   height:100%;
 }
 
-/* ✅ FIX: scale image to fit full width AND height — no cropping, no gaps */
+/* ✅ FIX: cover fills width perfectly, no squishing, slight bottom crop is fine for landscape banner */
 .hero-img{
   width:100%;
   height:100%;
-  object-fit:fill;
+  object-fit:cover;
+  object-position:center 60%;
   display:block;
 }
 
@@ -575,8 +576,8 @@ body{
     margin-top:80px !important;
     padding:0 !important;
     min-height:auto !important;
-    height:calc(100vh - 80px) !important;
-    overflow:hidden !important;
+    height:auto !important;
+    overflow:visible !important;
     background:#f7ede4 !important;
   }
 
@@ -584,19 +585,19 @@ body{
     display:block !important;
     width:100% !important;
     position:relative !important;
-    height:100% !important;
+    height:auto !important;
     margin:0 !important;
-    padding:0 !important;
+    padding:0 0 70px 0 !important;
     background:#f7ede4 !important;
-    overflow:hidden !important;
+    overflow:visible !important;
   }
 
-  /* ✅ Image fills available height, leaving room for button */
+  /* ✅ Image — shorter height, no cropping */
   .hero-mobile-img{
     display:block !important;
     width:100% !important;
-    height:calc(100vh - 80px - 70px) !important;
-    max-height:calc(100vh - 80px - 70px) !important;
+    height:75vh !important;
+    max-height:75vh !important;
     object-fit:contain !important;
     object-position:center top !important;
     margin:0 !important;
@@ -607,10 +608,11 @@ body{
 
   .hero-cta.mobile-cta{
     display:flex !important;
-    position:absolute !important;
-    left:50% !important;
-    transform:translateX(-50%) !important;
-    bottom:10px !important;
+    position:relative !important;
+    left:auto !important;
+    transform:none !important;
+    bottom:auto !important;
+    margin-top:-50px !important;
     width:100% !important;
     justify-content:center !important;
     align-items:center !important;
@@ -624,12 +626,12 @@ body{
   .hero-cta .primary-btn{
     pointer-events:auto !important;
     margin:0 !important;
-    padding:10px 28px !important;
-    font-size:13px !important;
-    font-weight:800 !important;
-    border-radius:30px !important;
-    letter-spacing:0.5px !important;
-    box-shadow:0 6px 16px rgba(242,103,34,.35) !important;
+    padding:16px 48px !important;
+    font-size:17px !important;
+    font-weight:900 !important;
+    border-radius:50px !important;
+    letter-spacing:1px !important;
+    box-shadow:0 10px 24px rgba(242,103,34,.40) !important;
   }
 
   /* PRODUCTS (mobile) */
