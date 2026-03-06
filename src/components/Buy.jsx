@@ -239,121 +239,138 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
     if (!pincode.trim() || !/^\d{6}$/.test(pincode))           return alert("Please enter a valid 6-digit pincode"), false;
     return true;
   };
+const handleSubmit = async () => {
+  if (orderLoading) return;
+  if (!product) return;
 
-  const handleSubmit = async () => {
-    if (orderLoading) return;
-    if (!product) return;
+  if (!hasSession()) {
+    setShowLoginGate(true);
+    return;
+  }
 
-    // ── Gate: must be logged in to place order ──
-    if (!hasSession()) {
-      setShowLoginGate(true);
-      return;
+  if (!validateForm()) return;
+
+  if (!window.Razorpay) {
+    alert("Razorpay SDK not loaded. Please refresh the page and try again.");
+    return;
+  }
+
+  setOrderLoading(true);
+  setServerTotal(null);
+  verifiedRef.current = false;
+
+  try {
+    const orderPayload = {
+      product_id: product.id,
+      quantity: Number(quantity || 1),
+      customer_name: orderForm.fullName,
+      customer_email: orderForm.email,
+      customer_phone: orderForm.phoneNumber,
+      shipping_address: `${orderForm.address}, ${orderForm.city}, ${orderForm.state} - ${orderForm.pincode}`,
+      pincode: orderForm.pincode,
+      notes: orderForm.notes || null,
+    };
+
+    // 1) Create DB order
+    const created = await createOrder(orderPayload);
+
+    const orderObj = created?.order;
+    const dbOrderId = orderObj?.id;
+    const publicToken = created?.public_token;
+
+    if (!dbOrderId || !publicToken) {
+      throw new Error("Order creation failed (missing id/token).");
     }
 
-    if (!validateForm()) return;
+    localStorage.setItem(`order_token_${dbOrderId}`, publicToken);
+    localStorage.setItem("last_order_id", String(dbOrderId));
 
-    if (!window.Razorpay) {
-      alert("Razorpay SDK not loaded. Please refresh the page and try again.");
-      return;
+    const total = Number(orderObj?.total_amount || 0);
+    if (!total || total <= 0) {
+      throw new Error("Invalid server total. Please try again.");
+    }
+    setServerTotal(total);
+
+    // 2) Create Razorpay order
+    const rp = await createRazorpayOrder({
+      order_id: dbOrderId,
+      email: orderForm.email,
+      phone: orderForm.phoneNumber,
+    });
+
+    if (!rp?.razorpayOrderId || !rp?.keyId || !rp?.amount) {
+      throw new Error("Failed to create Razorpay order (bad server response).");
     }
 
-    setOrderLoading(true);
-    setServerTotal(null);
-    verifiedRef.current = false;
-
-    try {
-      const orderPayload = {
-        product_id: product.id,
-        quantity: Number(quantity || 1),
-        customer_name: orderForm.fullName,
-        customer_email: orderForm.email,
-        customer_phone: orderForm.phoneNumber,
-        shipping_address: `${orderForm.address}, ${orderForm.city}, ${orderForm.state} - ${orderForm.pincode}`,
-        pincode: orderForm.pincode,
-        notes: orderForm.notes || null,
-      };
-
-      // 1) Create DB order
-      const created = await createOrder(orderPayload);
-
-      const orderObj    = created?.order;
-      const dbOrderId   = orderObj?.id;
-      const publicToken = created?.public_token;
-
-      if (!dbOrderId || !publicToken) {
-        throw new Error("Order creation failed (missing id/token).");
-      }
-
-      localStorage.setItem(`order_token_${dbOrderId}`, publicToken);
-      localStorage.setItem("last_order_id", String(dbOrderId));
-
-      const total = Number(orderObj?.total_amount || 0);
-      if (!total || total <= 0) throw new Error("Invalid server total. Please try again.");
-      setServerTotal(total);
-
-      // 2) Create Razorpay order
-      const rp = await createRazorpayOrder({
-        order_id: dbOrderId,
+    // 3) Open Razorpay Checkout
+    const options = {
+      key: rp.keyId,
+      amount: rp.amount,
+      currency: rp.currency || "INR",
+      name: "Ekabhumi",
+      description: `Order #${dbOrderId}`,
+      order_id: rp.razorpayOrderId,
+      prefill: {
+        name: orderForm.fullName,
         email: orderForm.email,
-        phone: orderForm.phoneNumber,
-      });
+        contact: orderForm.phoneNumber,
+      },
+      handler: async (response) => {
+        if (verifiedRef.current) return;
+        verifiedRef.current = true;
 
-      if (!rp?.razorpayOrderId || !rp?.keyId || !rp?.amount) {
-        throw new Error("Failed to create Razorpay order (bad server response).");
-      }
+        try {
+          await verifyRazorpayPayment({
+            dbOrderId,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
 
-      // 3) Open Razorpay Checkout
-      const options = {
-        key: rp.keyId,
-        amount: rp.amount,
-        currency: rp.currency || "INR",
-        name: "Ekabhumi",
-        description: `Order #${dbOrderId}`,
-        order_id: rp.razorpayOrderId,
-        prefill: {
-          name: orderForm.fullName,
-          email: orderForm.email,
-          contact: orderForm.phoneNumber,
+          setOrderLoading(false);
+          onSuccess?.();
+          onClose?.();
+        } catch (e) {
+          console.error("VERIFY ERROR:", e);
+          setOrderLoading(false);
+          alert("Payment done, but verification failed. Please contact support.");
+        }
+      },
+      modal: {
+        ondismiss: () => {
+          setOrderLoading(false);
         },
-        handler: async (response) => {
-          if (verifiedRef.current) return;
-          verifiedRef.current = true;
+      },
+      theme: { color: "#F26722" },
+    };
 
-          try {
-            await verifyRazorpayPayment({
-              dbOrderId,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
+    const rzp = new window.Razorpay(options);
 
-            onSuccess?.();
-            safeClose();
-          } catch (e) {
-            console.error(e);
-            alert("Payment done, but verification failed. Please contact support.");
-          }
-        },
-        modal: {
-          ondismiss: () => {},
-        },
-        theme: { color: "#F26722" },
-      };
+    rzp.on("payment.failed", (resp) => {
+      console.error("RAZORPAY PAYMENT FAILED:", resp);
+      console.error("RAZORPAY ERROR OBJECT:", resp?.error);
 
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (resp) => {
-        console.error(resp);
-        alert("❌ Payment failed. Please try again.");
-      });
-      rzp.open();
+      const error = resp?.error || {};
 
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || "Something went wrong. Please try again.");
-    } finally {
+      alert(
+        `Payment failed\n\n` +
+        `Code: ${error.code || "N/A"}\n` +
+        `Description: ${error.description || "N/A"}\n` +
+        `Reason: ${error.reason || "N/A"}\n` +
+        `Step: ${error.step || "N/A"}\n` +
+        `Source: ${error.source || "N/A"}`
+      );
+
       setOrderLoading(false);
-    }
-  };
+    });
+
+    rzp.open();
+  } catch (err) {
+    console.error("HANDLE SUBMIT ERROR:", err);
+    setOrderLoading(false);
+    alert(err?.message || "Something went wrong. Please try again.");
+  }
+};
 
   return (
     <div className="buy-overlay" onMouseDown={safeClose}>
