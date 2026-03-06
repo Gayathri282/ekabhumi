@@ -55,6 +55,15 @@ export async function fetchProductById(id) {
  * Backend returns: { order: {...}, public_token: "..." }
  */
 export async function createOrder(orderData) {
+  // 1. Wake server first
+  try {
+    await fetch(getUrl("/health"));
+  } catch {}
+
+  // 2. Small wait for server to be ready
+  await new Promise(r => setTimeout(r, 500));
+
+  // 3. Now create order
   const res = await fetch(getUrl("/orders"), {
     method: "POST",
     headers: {
@@ -66,7 +75,6 @@ export async function createOrder(orderData) {
 
   return handleJson(res, "Failed to create order");
 }
-
 /**
  * USER: Get my orders (requires JWT)
  */
