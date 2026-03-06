@@ -1,5 +1,5 @@
 // Reviews.jsx
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import styles from "./Dashboard.module.css";
 
 const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
@@ -15,11 +15,12 @@ function StarDisplay({ rating }) {
   );
 }
 
-export default function Reviews() {
-  const [reviews, setReviews]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [filter, setFilter]     = useState("all"); // all | pending | approved
+// ✅ Accept searchQuery prop with default empty string
+export default function Reviews({ searchQuery = "" }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState("");
+  const [filter,  setFilter]  = useState("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,11 +64,27 @@ export default function Reviews() {
     } catch (e) { setError(e?.message || "Failed to delete"); }
   };
 
-  const filtered = reviews.filter((r) => {
-    if (filter === "pending")  return !r.approved;
-    if (filter === "approved") return r.approved;
-    return true;
-  });
+  // ✅ Filter by tab AND search query
+  const filtered = useMemo(() => {
+    let list = reviews;
+
+    // Tab filter
+    if (filter === "pending")  list = list.filter((r) => !r.approved);
+    if (filter === "approved") list = list.filter((r) => r.approved);
+
+    // Search filter
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r) =>
+        r.user_name?.toLowerCase().includes(q) ||
+        r.user_email?.toLowerCase().includes(q) ||
+        r.text?.toLowerCase().includes(q) ||
+        r.product_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [reviews, filter, searchQuery]);
 
   const pendingCount  = reviews.filter((r) => !r.approved).length;
   const approvedCount = reviews.filter((r) => r.approved).length;
@@ -75,8 +92,8 @@ export default function Reviews() {
   if (loading) {
     return (
       <div className={styles.emptyState}>
-        <div className={styles.emptyStateIcon}>⏳</div>
-        <h3>Loading reviews…</h3>
+        <div className={styles.emptyIcon}>⏳</div>
+        <p className={styles.emptyMsg}>Loading reviews…</p>
       </div>
     );
   }
@@ -84,9 +101,9 @@ export default function Reviews() {
   return (
     <div>
       {error && (
-        <div className={styles.errorAlert} style={{ marginBottom: 16 }}>
+        <div className={styles.errorBanner} style={{ marginBottom: 16 }}>
           ⚠️ {error}
-          <button onClick={() => setError("")} className={styles.dismissBtn} type="button">×</button>
+          <button onClick={() => setError("")} className={styles.errorDismiss} type="button">×</button>
         </div>
       )}
 
@@ -103,30 +120,42 @@ export default function Reviews() {
               type="button"
               onClick={() => setFilter(key)}
               style={{
-                padding: "7px 16px", borderRadius: 50, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer",
                 border: filter === key ? "none" : "1px solid #e5e7eb",
                 background: filter === key ? "#F26722" : "#fff",
                 color: filter === key ? "#fff" : "#666",
                 transition: "all 0.15s",
               }}
             >
-              {label} <span style={{ opacity: 0.8 }}>({count})</span>
+              {label} ({count})
             </button>
           ))}
         </div>
         <button
           type="button"
           onClick={load}
-          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 700, color: "#F26722", cursor: "pointer" }}
+          style={{
+            background: "none", border: "1px solid #e5e7eb",
+            borderRadius: 8, padding: "7px 14px",
+            fontSize: 12, fontWeight: 700, color: "#F26722", cursor: "pointer",
+          }}
         >
           ↻ Refresh
         </button>
       </div>
 
+      {/* ✅ Empty state — no error, just clean message */}
       {filtered.length === 0 ? (
         <div className={styles.emptyState}>
-          <div className={styles.emptyStateIcon}>💬</div>
-          <h3>No {filter !== "all" ? filter : ""} reviews</h3>
+          <div className={styles.emptyIcon}>💬</div>
+          <p className={styles.emptyMsg}>
+            {searchQuery
+              ? `No reviews match "${searchQuery}"`
+              : filter !== "all"
+                ? `No ${filter} reviews`
+                : "No reviews yet"
+            }
+          </p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -136,36 +165,32 @@ export default function Reviews() {
               border: `1px solid ${r.approved ? "#d1fae5" : "#fef3c7"}`,
               borderLeft: `4px solid ${r.approved ? "#10b981" : "#f59e0b"}`,
               borderRadius: 14,
-              padding: "18px 20px",
-              transition: "box-shadow 0.2s",
+              padding: "16px 18px",
             }}>
               {/* Top row */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {/* Avatar */}
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   <div style={{
-                    width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                    width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
                     background: r.approved ? "#d1fae5" : "#fef3c7",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: 16, color: r.approved ? "#059669" : "#d97706",
+                    fontWeight: 800, fontSize: 15,
+                    color: r.approved ? "#059669" : "#d97706",
                   }}>
                     {(r.user_name?.[0] || "?").toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a" }}>{r.user_name}</div>
-                    <div style={{ fontSize: 12, color: "#999", marginTop: 1 }}>{r.user_email}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{r.user_name}</div>
+                    <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>{r.user_email}</div>
                     {r.product_name && (
-                      <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
-                        📦 {r.product_name}
-                      </div>
+                      <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>📦 {r.product_name}</div>
                     )}
                   </div>
                 </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   <StarDisplay rating={r.rating} />
                   <span style={{
-                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                    fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 999,
                     background: r.approved ? "rgba(16,185,129,0.1)" : "rgba(245,158,11,0.1)",
                     color: r.approved ? "#059669" : "#d97706",
                   }}>
@@ -175,14 +200,17 @@ export default function Reviews() {
               </div>
 
               {/* Review text */}
-              <p style={{ margin: "12px 0 14px", fontSize: 14, color: "#444", lineHeight: 1.65, paddingLeft: 52 }}>
+              <p style={{ margin: "12px 0 12px 48px", fontSize: 13, color: "#444", lineHeight: 1.65 }}>
                 "{r.text}"
               </p>
 
               {/* Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingLeft: 52 }}>
-                <span style={{ fontSize: 12, color: "#bbb" }}>
-                  {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingLeft: 48 }}>
+                <span style={{ fontSize: 11, color: "#bbb" }}>
+                  {r.created_at
+                    ? new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                    : "—"
+                  }
                 </span>
                 <div style={{ display: "flex", gap: 8 }}>
                   {!r.approved && (
@@ -191,8 +219,8 @@ export default function Reviews() {
                       onClick={() => approve(r.id)}
                       style={{
                         background: "#10b981", color: "#fff", border: "none",
-                        borderRadius: 8, padding: "7px 16px", fontSize: 13,
-                        fontWeight: 700, cursor: "pointer",
+                        borderRadius: 8, padding: "6px 14px",
+                        fontSize: 12, fontWeight: 700, cursor: "pointer",
                       }}
                     >
                       ✓ Approve
@@ -204,7 +232,7 @@ export default function Reviews() {
                     style={{
                       background: "none", color: "#ef4444",
                       border: "1px solid #fecaca", borderRadius: 8,
-                      padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
                     }}
                   >
                     🗑 Delete
