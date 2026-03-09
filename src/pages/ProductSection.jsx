@@ -26,14 +26,10 @@ function resolveImg(p) {
   return p.image_url.startsWith("http") ? p.image_url : `${API_BASE}${p.image_url}`;
 }
 
-/* ── Shared navigation handler: checks login, blocks soon ── */
+/* ── Shared navigation handler: blocks soon only ── */
 function useGoProduct(onNavigate, isLoggedIn) {
   return (p) => {
     if (isSoon(p)) return;
-    if (!isLoggedIn) {
-      alert("Please sign in to view product details.");
-      return;
-    }
     onNavigate(`/products/${p.id}`);
   };
 }

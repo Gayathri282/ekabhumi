@@ -1,88 +1,104 @@
-// src/pages/Products.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./Products.css";
-import { fetchProducts } from "../api/publicAPI";
+// ProductSection.jsx
+// Drop-in replacement for the <section id="products"> block in Home.jsx
+// Props:
+//   products     — full sorted+filtered array from Home
+//   loading      — bool
+//   error        — string
+//   search       — string
+//   onSearch     — setter fn
+//   onNavigate   — navigate fn from useNavigate()
+//   isLoggedIn   — bool (gates "View Details" like Products.jsx does)
+
+import { useRef } from "react";
+import "./ProductSection.css";
 
 const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
 
-function safeNum(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
+const imgFallback = (e) => {
+  e.target.onerror = null;
+  e.target.src = "https://placehold.co/400x500/f5ede6/999?text=Product";
+};
 
-function imgSrc(p) {
-  if (!p.image_url) return "https://placehold.co/600x450/EEE/31343C?text=Product+Image";
+const isSoon = (p) => Number(p.quantity ?? 0) <= 0;
+
+function resolveImg(p) {
+  if (!p.image_url) return "https://placehold.co/400x500/f5ede6/999?text=Product";
   return p.image_url.startsWith("http") ? p.image_url : `${API_BASE}${p.image_url}`;
 }
 
-const imgFallback = (e) => {
-  e.currentTarget.onerror = null;
-  e.currentTarget.src = "https://placehold.co/600x450/EEE/31343C?text=Product+Image";
-};
+/* ── Shared navigation handler: blocks soon only ── */
+function useGoProduct(onNavigate, isLoggedIn) {
+  return (p) => {
+    if (isSoon(p)) return;
+    onNavigate(`/products/${p.id}`);
+  };
+}
 
-const isSoon = (p) => safeNum(p.quantity, 0) <= 0;
-
-/* ══════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════
    LAYOUT 1 — Cinematic single-product feature card
-   ══════════════════════════════════════════════════ */
-function FeatureSingle({ product, onGo }) {
+   ════════════════════════════════════════════════════════ */
+function FeatureSingle({ product, goProduct }) {
   const soon = isSoon(product);
+
   return (
-    <div className="featureSingle">
-      <div className="featureSingle__imgPane">
-        <img src={imgSrc(product)} alt={product.name} onError={imgFallback} />
-        {soon && <div className="featureSingle__soon">Available Soon</div>}
+    <div className="feature-single">
+      {/* Image pane */}
+      <div className="feature-single__img-pane">
+        <img src={resolveImg(product)} alt={product.name} onError={imgFallback} />
+        {soon && <div className="feature-single__soon">Available Soon</div>}
       </div>
-      <div className="featureSingle__info">
-        <div className="featureSingle__label">Featured Product</div>
-        <h2 className="featureSingle__name">{product.name}</h2>
+
+      {/* Info pane */}
+      <div className="feature-single__info">
+        <div className="feature-single__label">Featured Product</div>
+        <h2 className="feature-single__name">{product.name}</h2>
         {product.description && (
-          <p className="featureSingle__desc">
-            {product.description.slice(0, 160)}{product.description.length > 160 ? "…" : ""}
+          <p className="feature-single__desc">
+            {product.description.slice(0, 140)}
+            {product.description.length > 140 ? "…" : ""}
           </p>
         )}
-        <div className="featureSingle__price">
+        <div className="feature-single__price">
           <span>₹</span>{parseFloat(product.price || 0).toFixed(2)}
         </div>
         <button
-          className={`featureSingle__btn${soon ? " featureSingle__btn--soon" : ""}`}
+          className="feature-single__btn"
           disabled={soon}
-          onClick={() => onGo(product)}
+          onClick={() => goProduct(product)}
         >
           {soon ? "Coming Soon" : "View Details"}
-          {!soon && <span className="featureSingle__arrow">→</span>}
+          {!soon && <span className="feature-single__btn-arrow">→</span>}
         </button>
       </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════
    LAYOUT 2–3 — Editorial grid
-   ══════════════════════════════════════════════════ */
-function FeatureGrid({ products, onGo }) {
+   ════════════════════════════════════════════════════════ */
+function FeatureGrid({ products, goProduct }) {
   return (
-    <div className={`featureGrid featureGrid--${products.length}`}>
+    <div className={`feature-grid feature-grid--${products.length}`}>
       {products.map((p, i) => {
         const soon = isSoon(p);
         return (
           <div
             key={p.id}
-            className={`featureCard${soon ? " featureCard--soon" : ""}`}
+            className="feature-grid-card"
             style={{ animationDelay: `${i * 0.08}s` }}
-            onClick={() => onGo(p)}
+            onClick={() => goProduct(p)}
           >
-            <div className="featureCard__img">
-              <img src={imgSrc(p)} alt={p.name} onError={imgFallback} loading="lazy" />
-              {soon && <div className="featureCard__soonBadge">Soon</div>}
+            <div className="feature-grid-card__img">
+              <img src={resolveImg(p)} alt={p.name} onError={imgFallback} loading="lazy" />
+              {soon && <div className="feature-grid-card__soon">Soon</div>}
             </div>
-            <div className="featureCard__overlay">
-              <div className="featureCard__name">{p.name}</div>
+            <div className="feature-grid-card__info">
+              <div className="feature-grid-card__name">{p.name}</div>
               <button
-                className="featureCard__btn"
+                className="feature-grid-card__btn"
                 disabled={soon}
-                onClick={(e) => { e.stopPropagation(); onGo(p); }}
+                onClick={(e) => { e.stopPropagation(); goProduct(p); }}
               >
                 {soon ? "Coming Soon" : "View Details"}
               </button>
@@ -94,44 +110,46 @@ function FeatureGrid({ products, onGo }) {
   );
 }
 
-/* ══════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════
    LAYOUT 4+ — Scrolling carousel
-   (reuses existing pCard / pImg / pBtn styles)
-   ══════════════════════════════════════════════════ */
-function Carousel({ products, onGo }) {
+   ════════════════════════════════════════════════════════ */
+function Carousel({ products, goProduct }) {
   const trackRef = useRef(null);
+
   const scroll = (dir) => {
     const el = trackRef.current;
     if (!el) return;
-    const card = el.querySelector(".carouselCard");
+    const card = el.querySelector(".ps-carousel-card");
     const step = card ? card.getBoundingClientRect().width + 16 : el.clientWidth * 0.85;
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
   return (
-    <div className="carouselWrap">
-      <button className="carouselArrow carouselArrow--prev" onClick={() => scroll("prev")} aria-label="Previous" type="button">‹</button>
-      <div className="carouselTrack" ref={trackRef}>
+    <div className="ps-carousel">
+      <button className="ps-arrow ps-arrow--prev" onClick={() => scroll("prev")} type="button" aria-label="Previous">‹</button>
+      <div className="ps-carousel-track" ref={trackRef}>
         {products.map((p) => {
           const soon = isSoon(p);
           return (
             <div
               key={p.id}
-              className={`carouselCard pCard${soon ? " pCardSoon" : ""}`}
-              onClick={() => onGo(p)}
+              className="ps-carousel-card"
+              onClick={() => goProduct(p)}
             >
-              {soon && <div className="pBadge">Available Soon</div>}
-              <div className="pImgWrap">
-                <img src={imgSrc(p)} alt={p.name} className="pImg" onError={imgFallback} loading="lazy" />
-              </div>
-              <div className="pBody">
-                <div className="pName">{p.name}</div>
-                <div className="pSub">{soon ? "Out of stock" : `In stock: ${safeNum(p.quantity)}`}</div>
+              {soon && <div className="ps-carousel-card__soon">Available Soon</div>}
+              <img
+                src={resolveImg(p)}
+                alt={p.name}
+                className="ps-carousel-card__img"
+                onError={imgFallback}
+                loading="lazy"
+              />
+              <div className="ps-carousel-card__info">
+                <span className="ps-carousel-card__name">{p.name}</span>
                 <button
-                  type="button"
-                  className={`pBtn${soon ? " pBtnDisabled" : ""}`}
+                  className="ps-carousel-card__btn"
                   disabled={soon}
-                  onClick={(e) => { e.stopPropagation(); onGo(p); }}
+                  onClick={(e) => { e.stopPropagation(); goProduct(p); }}
                 >
                   View Details
                 </button>
@@ -140,137 +158,76 @@ function Carousel({ products, onGo }) {
           );
         })}
       </div>
-      <button className="carouselArrow carouselArrow--next" onClick={() => scroll("next")} aria-label="Next" type="button">›</button>
+      <button className="ps-arrow ps-arrow--next" onClick={() => scroll("next")} type="button" aria-label="Next">›</button>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════
-   MAIN PAGE
-   ══════════════════════════════════════════════════ */
-const Products = () => {
-  const navigate = useNavigate();
-
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [user, setUser]         = useState(null);
-  const [search, setSearch]     = useState("");
-
-  useEffect(() => {
-    try {
-      const u = localStorage.getItem("userData");
-      if (u) setUser(JSON.parse(u));
-    } catch {
-      localStorage.removeItem("userData");
-    }
-  }, []);
-
-  const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true); setError("");
-      const data = await fetchProducts();
-      setProducts(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-      setError("Temporary issue loading products.");
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProducts();
-    const onStorage = (e) => { if (e.key === "productsUpdated") loadProducts(); };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("focus", loadProducts);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("focus", loadProducts);
-    };
-  }, [loadProducts]);
-
-  const sorted = useMemo(() =>
-    [...products].sort((a, b) => safeNum(a.priority, 9999) - safeNum(b.priority, 9999)),
-  [products]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.description?.toLowerCase().includes(q)
-    );
-  }, [sorted, search]);
-
-  const goDetails = (p) => {
-    if (isSoon(p)) return;
-    if (!user) { alert("Please login to view details."); return; }
-    navigate(`/products/${p.id}`);
-  };
-
-  const count = filtered.length;
+/* ════════════════════════════════════════════════════════
+   MAIN EXPORT
+   ════════════════════════════════════════════════════════ */
+export default function ProductSection({
+  products,
+  loading,
+  error,
+  search,
+  onSearch,
+  onNavigate,
+  isLoggedIn = false,   // ← pass this from Home
+}) {
+  const count      = products.length;
+  const goProduct  = useGoProduct(onNavigate, isLoggedIn);
 
   return (
-    <section className="productsPage">
+    <section id="products" className="products-section">
+      <div className="products-section-inner">
 
-      {/* Header */}
-      <div className="productsHeader">
-        <h1 className="productsTitle">Our Products</h1>
-        <div className="productsMeta">
-          <span className="productsCount">{sorted.length} items</span>
-        </div>
-      </div>
-
-      {/* Search — only shown for 4+ products */}
-      {sorted.length >= 4 && (
-        <div className="productsSearchWrap">
-          <div className="productsSearchBox">
-            <svg className="productsSearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input
-              className="productsSearchInput"
-              type="text"
-              placeholder="Search products…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            {search && (
-              <button className="productsSearchClear" onClick={() => setSearch("")}>×</button>
-            )}
+        {/* Search — only useful with 4+ products */}
+        {count >= 4 && (
+          <div className="ps-search-wrap">
+            <div className="ps-search-box">
+              <svg className="ps-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                className="ps-search-input"
+                type="text"
+                placeholder="Search products…"
+                value={search}
+                onChange={e => onSearch(e.target.value)}
+              />
+              {search && (
+                <button className="ps-search-clear" onClick={() => onSearch("")} aria-label="Clear">×</button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* States */}
-      {error   && <div className="productsError">⚠️ {error}</div>}
-      {loading && <div className="productsLoading">Loading products…</div>}
+        {/* Status */}
+        {error   && <div className="ps-error">⚠️ {error}</div>}
+        {loading && <div className="ps-loading">Loading products…</div>}
 
-      {!loading && !error && count === 0 && (
-        <div className="productsEmpty">
-          <div className="productsEmptyIcon">📦</div>
-          <h3>{search ? `No results for "${search}"` : "No products available"}</h3>
-          <p>Please check back later.</p>
-        </div>
-      )}
+        {!loading && count === 0 && !error && (
+          <div className="ps-empty">
+            {search ? `No products found for "${search}"` : "No products available yet."}
+          </div>
+        )}
 
-      {/* ── Adaptive layout ── */}
-      {!loading && count === 1 && (
-        <FeatureSingle product={filtered[0]} onGo={goDetails} />
-      )}
+        {/* Layout decision */}
+        {!loading && count === 1 && (
+          <FeatureSingle product={products[0]} goProduct={goProduct} />
+        )}
 
-      {!loading && count >= 2 && count <= 3 && (
-        <FeatureGrid products={filtered} onGo={goDetails} />
-      )}
+        {!loading && count >= 2 && count <= 3 && (
+          <FeatureGrid products={products} goProduct={goProduct} />
+        )}
 
-      {!loading && count >= 4 && (
-        <Carousel products={filtered} onGo={goDetails} />
-      )}
+        {!loading && count >= 4 && (
+          <Carousel products={products} goProduct={goProduct} />
+        )}
 
+      </div>
     </section>
   );
-};
-
-export default Products;
+}
