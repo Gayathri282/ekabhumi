@@ -1,49 +1,76 @@
-// src/api/authAPI.js
-const API_URL = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
+const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
 
-// Google OAuth login -> backend expects { token: "<google_id_token>" }
-// This function will ALSO persist the JWT in localStorage.
-export const googleLogin = async (googleIdToken) => {
-  const res = await fetch(`${API_URL}/auth/google`, {
+// ── Google login ──────────────────────────────────────────────────────────────
+export async function googleLogin(googleIdToken) {
+  const res = await fetch(`${API_BASE}/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token: googleIdToken }),
   });
-
-  const data = await res.json().catch(() => ({}));
-
   if (!res.ok) {
-    throw new Error(data.detail || "Login failed");
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Login failed");
   }
+  return res.json();
+}
 
-  if (data?.access_token) {
-    localStorage.setItem("accessToken", data.access_token);
-  }
-  if (data?.role) {
-    localStorage.setItem("role", data.role);
-  }
+// ── Logout ────────────────────────────────────────────────────────────────────
+export function logout() {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("userData");
+  localStorage.removeItem("tokenExp");
+}
 
-  return data; // { access_token, token_type, role, expires_in }
-};
-
-// Minimal "session" check: confirm token exists locally.
-export const hasSession = () => {
+// ── Check if session exists and token is not expired ─────────────────────────
+export function hasSession() {
   const token = localStorage.getItem("accessToken");
   if (!token) return false;
+  try {
+    // Decode payload without verifying signature (verification is backend's job)
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const nowSec  = Math.floor(Date.now() / 1000);
+    return payload.exp > nowSec;
+  } catch {
+    return false;
+  }
+}
 
+// ── Get seconds until token expires ──────────────────────────────────────────
+function getSecondsUntilExpiry() {
+  const token = localStorage.getItem("accessToken");
+  if (!token) return 0;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    // Check token not expired
-    return payload.exp * 1000 > Date.now();
+    return Math.max(0, payload.exp - Math.floor(Date.now() / 1000));
   } catch {
-    return false; // malformed token
+    return 0;
   }
-};
+}
 
-// Logout = delete local token
-export const logout = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("role");
-  return true;
-};
+// ── Auto-refresh: call on app load ───────────────────────────────────────────
+// If token exists and expires within 7 days, silently get a fresh 30-day token.
+// This means active users who open the app daily never get logged out.
+export async function autoRefreshToken() {
+  if (!hasSession()) return;
 
+  const secsLeft   = getSecondsUntilExpiry();
+  const sevenDays  = 7 * 24 * 3600;
+
+  // Only refresh if within 7 days of expiry (avoids unnecessary requests)
+  if (secsLeft > sevenDays) return;
+
+  try {
+    const token = localStorage.getItem("accessToken");
+    const res   = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return; // silently fail — don't log user out
+    const data = await res.json();
+    if (data.access_token) {
+      localStorage.setItem("accessToken", data.access_token);
+    }
+  } catch {
+    // Network error — keep existing token, don't log out
+  }
+}

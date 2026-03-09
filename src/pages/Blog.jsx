@@ -3,7 +3,6 @@ import "./Blog.css";
 
 const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
 
-// Fallback blogs shown if backend has no entries yet
 const FALLBACK_BLOGS = [
   {
     id: 1,
@@ -44,30 +43,28 @@ const FALLBACK_BLOGS = [
 ];
 
 const Blog = () => {
-  const [blogs, setBlogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Start with fallback immediately — no blank/loading state ever
+  const [blogs, setBlogs] = useState(FALLBACK_BLOGS);
 
   useEffect(() => {
-    fetch(`${API_BASE}/blogs`)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    fetch(`${API_BASE}/blogs`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(data => {
-        const list = Array.isArray(data) && data.length > 0 ? data : FALLBACK_BLOGS;
-        setBlogs(list.slice(0, 4)); // max 4
+        if (Array.isArray(data) && data.length > 0) {
+          setBlogs(data.slice(0, 4));
+        }
+        // if empty array, keep showing fallback
       })
-      .catch(() => setBlogs(FALLBACK_BLOGS))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        // Network error, timeout, or bad response — fallback already shown
+      })
+      .finally(() => clearTimeout(timeout));
 
-  if (loading) return (
-    <section id="blog" className="blog-section">
-      <div className="container">
-        <div className="section-header">
-          <h2 className="section-title">Blog & Articles</h2>
-        </div>
-        <div style={{ textAlign: "center", padding: "40px", color: "#999" }}>Loading…</div>
-      </div>
-    </section>
-  );
+    return () => { controller.abort(); clearTimeout(timeout); };
+  }, []);
 
   return (
     <section id="blog" className="blog-section">
@@ -82,7 +79,7 @@ const Blog = () => {
             <article className="blog-card" key={post.id}>
               <a
                 className="blog-image"
-                href={post.href}
+                href={post.href || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Open article: ${post.title}`}
@@ -104,7 +101,7 @@ const Blog = () => {
                 <p className="blog-excerpt">{post.excerpt}</p>
                 <a
                   className="blog-read-more"
-                  href={post.href}
+                  href={post.href || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

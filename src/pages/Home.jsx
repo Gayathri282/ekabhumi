@@ -6,7 +6,7 @@ import Blog from "./Blog";
 import Testimonial from "./Testimonial";
 import Footer from "./Footer";
 import { fetchProducts } from "../api/publicAPI";
-import { googleLogin, logout, hasSession } from "../api/authAPI";
+import { googleLogin, logout, hasSession, autoRefreshToken } from "../api/authAPI";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
@@ -102,6 +102,9 @@ const Home = () => {
 
   // Init Google SDK
   useEffect(() => {
+    // Silently refresh token if expiring within 7 days
+    autoRefreshToken();
+
     const init = () => initGoogleOneTap(handleCredential);
     if (window.google?.accounts?.id) { init(); return; }
     const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
@@ -446,7 +449,7 @@ const Home = () => {
       </section>
 
       <section id="about"        className="pageSection"><About /></section>
-      <section id="blog">        <Blog /></section>
+      <Blog />
       <section id="testimonials"><Testimonial onLogin={handleCredential} /></section>
       <Footer />
     </>
