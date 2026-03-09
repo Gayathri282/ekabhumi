@@ -290,6 +290,14 @@ function AdminDashboard() {
           <div className={styles.statPill}>
             <span>⏳</span> {pendingOrders.length} Pending
           </div>
+          <button
+            className={styles.logoutBtn}
+            onClick={() => navigate("/")}
+            type="button"
+            style={{ background: "none", color: "#F26722", border: "1px solid #F26722" }}
+          >
+            🏠 Home
+          </button>
           <button className={styles.logoutBtn} onClick={logout} type="button">
             Sign Out
           </button>

@@ -21,14 +21,14 @@ function initGoogleOneTap(callback) {
 }
 
 const Home = () => {
-  const [scrolled, setScrolled]         = useState(false);
-  const [menuOpen, setMenuOpen]         = useState(false);
-  const [isMobile, setIsMobile]         = useState(window.innerWidth <= 992);
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [scrolled, setScrolled]                   = useState(false);
+  const [menuOpen, setMenuOpen]                   = useState(false);
+  const [isMobile, setIsMobile]                   = useState(window.innerWidth <= 992);
+  const [loginLoading, setLoginLoading]           = useState(false);
   const [showLoginDropdown, setShowLoginDropdown] = useState(false);
-  const [search, setSearch]             = useState("");
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState("");
+  const [search, setSearch]                       = useState("");
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState("");
 
   const [products, setProducts] = useState(() => {
     try { const c = localStorage.getItem("cachedProducts"); return c ? JSON.parse(c) : []; }
@@ -36,17 +36,19 @@ const Home = () => {
   });
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => hasSession());
-  const [userData, setUserData] = useState(() => {
+  const [userData, setUserData]     = useState(() => {
     try { return JSON.parse(localStorage.getItem("userData") || "{}"); } catch { return {}; }
   });
 
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const loginDropdownRef = useRef(null);
-  const googleBtnRef     = useRef(null);
+  // googleBtnRef is NOT used for the desktop dropdown anymore — we use callback ref
   const trackRef         = useRef(null);
   const navigate         = useNavigate();
 
   const isAdmin = userData?.role === "admin";
 
+  // ── Products ─────────────────────────────────────────────────────────────
   const sortedProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
     return [...products].sort((a, b) => {
@@ -60,20 +62,18 @@ const Home = () => {
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return sortedProducts;
-    return sortedProducts.filter(
-      (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
+    return sortedProducts.filter(p =>
+      p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
     );
   }, [sortedProducts, search]);
 
   const closeMenu = () => setMenuOpen(false);
 
+  // ── Google login ──────────────────────────────────────────────────────────
   const handleCredential = useCallback(async (googleIdToken) => {
     setLoginLoading(true);
     try {
       const data = await googleLogin(googleIdToken);
-
       if (data?.role === "admin") {
         localStorage.setItem("accessToken", data.access_token);
         localStorage.setItem("userData", JSON.stringify({ role: "admin", email: data.email, name: data.name || "" }));
@@ -81,7 +81,6 @@ const Home = () => {
         navigate("/admin/dashboard", { replace: true });
         return;
       }
-
       const user = {
         role: "user",
         email: data.email,
@@ -90,7 +89,6 @@ const Home = () => {
       };
       localStorage.setItem("accessToken", data.access_token);
       localStorage.setItem("userData", JSON.stringify(user));
-
       setIsLoggedIn(true);
       setUserData(user);
       setShowLoginDropdown(false);
@@ -102,6 +100,7 @@ const Home = () => {
     }
   }, [navigate]);
 
+  // Init Google SDK
   useEffect(() => {
     const init = () => initGoogleOneTap(handleCredential);
     if (window.google?.accounts?.id) { init(); return; }
@@ -117,17 +116,21 @@ const Home = () => {
     }
   }, [handleCredential]);
 
-  useEffect(() => {
-    if (!showLoginDropdown || isLoggedIn) return;
-    if (!googleBtnRef.current || !window.google?.accounts?.id) return;
-    const t = setTimeout(() => {
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: "outline", size: "large", text: "signin_with", width: 220,
-      });
-    }, 50);
-    return () => clearTimeout(t);
-  }, [showLoginDropdown, isLoggedIn]);
+  // ── Callback ref: renders Google button the moment the div mounts ─────────
+  // This is the KEY fix — avoids the timing issue with AuthButton re-rendering
+  const googleBtnCallbackRef = useCallback((el) => {
+    if (!el || isLoggedIn || !window.google?.accounts?.id) return;
+    // Small delay to ensure Google SDK is fully ready
+    setTimeout(() => {
+      try {
+        window.google.accounts.id.renderButton(el, {
+          theme: "outline", size: "large", text: "signin_with", width: 220,
+        });
+      } catch (_) {}
+    }, 80);
+  }, [isLoggedIn]);
 
+  // Close dropdown on outside click
   useEffect(() => {
     if (!showLoginDropdown) return;
     const handler = (e) => {
@@ -147,6 +150,7 @@ const Home = () => {
     setShowLoginDropdown(false);
   };
 
+  // ── Resize / scroll / menu lock ───────────────────────────────────────────
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth <= 992);
@@ -163,6 +167,7 @@ const Home = () => {
     return () => { document.body.style.overflow = prev; };
   }, [menuOpen]);
 
+  // ── Products load ─────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -196,18 +201,12 @@ const Home = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const handleImageError = (e) => {
-    e.target.onerror = null;
-    e.target.src = "https://placehold.co/400x300/EEE/31343C?text=Product+Image";
-  };
-
-  const handleLogoError = (e) => {
-    e.target.onerror = null;
-    e.target.src = "/images/logo-placeholder.png";
-  };
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const handleImageError  = (e) => { e.target.onerror = null; e.target.src = "https://placehold.co/400x300/EEE/31343C?text=Product+Image"; };
+  const handleLogoError   = (e) => { e.target.onerror = null; e.target.src = "/images/logo-placeholder.png"; };
 
   const goToPriorityOneProduct = () => {
-    const top = sortedProducts.find((p) => Number(p.priority) === 1) || sortedProducts[0];
+    const top = sortedProducts.find(p => Number(p.priority) === 1) || sortedProducts[0];
     if (top?.id) navigate(`/products/${top.id}`);
     else document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
   };
@@ -216,13 +215,13 @@ const Home = () => {
     const el = trackRef.current;
     if (!el) return;
     const card = el.querySelector(".product-card");
-    const gap = 16;
+    const gap  = 16;
     const step = card ? card.getBoundingClientRect().width + gap : el.clientWidth * 0.85;
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
-  const userEmail   = userData?.email || "";
-  const userName    = userData?.name  || userEmail.split("@")[0] || "";
+  const userEmail   = userData?.email   || "";
+  const userName    = userData?.name    || userEmail.split("@")[0] || "";
   const userPicture = userData?.picture || null;
   const userInitial = (userName[0] || userEmail[0] || "U").toUpperCase();
 
@@ -232,7 +231,8 @@ const Home = () => {
       : <span style={{ fontWeight: 800, fontSize: 15 }}>{userInitial}</span>
   );
 
-  const AuthButton = () => (
+  // ── Auth button — plain JSX, no sub-component (avoids ref destroy on re-render)
+  const renderAuthSection = () => (
     <div className="auth-wrap" ref={loginDropdownRef}>
       {isLoggedIn ? (
         isAdmin ? (
@@ -258,17 +258,7 @@ const Home = () => {
           className="nav-auth-btn nav-auth-btn--login"
           onClick={() => setShowLoginDropdown(v => !v)}
           disabled={loginLoading}
-          style={{
-            background: loginLoading ? "#ccc" : "#F26722",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            padding: "8px 20px",
-            fontWeight: 700,
-            fontSize: 14,
-            cursor: loginLoading ? "not-allowed" : "pointer",
-            transition: "background 0.2s",
-          }}
+          style={{ background: loginLoading ? "#ccc" : "#F26722", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 700, fontSize: 14, cursor: loginLoading ? "not-allowed" : "pointer", transition: "background 0.2s" }}
           onMouseEnter={e => { if (!loginLoading) e.currentTarget.style.background = "#d4541a"; }}
           onMouseLeave={e => { if (!loginLoading) e.currentTarget.style.background = "#F26722"; }}
         >
@@ -276,41 +266,32 @@ const Home = () => {
         </button>
       )}
 
-      {showLoginDropdown && !isAdmin && (
+      {showLoginDropdown && !isLoggedIn && (
         <div className="auth-dropdown">
-          {isLoggedIn ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #f0ebe4" }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "#F26722", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15 }}>
-                  <Avatar />
-                </div>
-                <div>
-                  {userName && <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{userName}</div>}
-                  <div style={{ fontSize: 12, color: "#999" }}>{userEmail}</div>
-                </div>
-              </div>
-              <button className="auth-dropdown-item" onClick={() => { setShowLoginDropdown(false); navigate("/account"); }}>
-                My Orders
-              </button>
-              <button className="auth-dropdown-item auth-dropdown-item--danger" onClick={handleLogout}>
-                Sign Out
-              </button>
-            </>
-          ) : (
-            <div className="auth-dropdown-login">
-              <p className="auth-dropdown-hint">Sign in to track your orders</p>
-              <div ref={googleBtnRef} />
+          <div className="auth-dropdown-login">
+            <p className="auth-dropdown-hint">Sign in to track your orders</p>
+            {/* callback ref: renders Google button immediately when div mounts */}
+            <div ref={googleBtnCallbackRef} />
+          </div>
+        </div>
+      )}
+
+      {showLoginDropdown && isLoggedIn && !isAdmin && (
+        <div className="auth-dropdown">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #f0ebe4" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "#F26722", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15 }}>
+              <Avatar />
             </div>
-          )}
+            <div>
+              {userName && <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{userName}</div>}
+              <div style={{ fontSize: 12, color: "#999" }}>{userEmail}</div>
+            </div>
+          </div>
+          <button className="auth-dropdown-item" onClick={() => { setShowLoginDropdown(false); navigate("/account"); }}>My Orders</button>
+          <button className="auth-dropdown-item auth-dropdown-item--danger" onClick={handleLogout}>Sign Out</button>
         </div>
       )}
     </div>
-  );
-
-  const MobileRightButton = () => (
-    <button className="hamburger mobile-only" type="button" onClick={() => setMenuOpen(v => !v)} aria-label="Menu" aria-expanded={menuOpen}>
-      <span /><span /><span />
-    </button>
   );
 
   return (
@@ -323,7 +304,6 @@ const Home = () => {
           }
         </div>
 
-        {/* ✅ RESTORED: Products, Testimonials, Blog nav links */}
         <div className="nav-links desktop-only">
           <a href="#home">Home</a>
           <a href="#products">Products</a>
@@ -333,10 +313,14 @@ const Home = () => {
         </div>
 
         <div className="desktop-only">
-          <AuthButton />
+          {renderAuthSection()}
         </div>
 
-        {isMobile && <MobileRightButton />}
+        {isMobile && (
+          <button className="hamburger mobile-only" type="button" onClick={() => setMenuOpen(v => !v)} aria-label="Menu" aria-expanded={menuOpen}>
+            <span /><span /><span />
+          </button>
+        )}
       </nav>
 
       {/* Mobile menu */}
@@ -356,41 +340,30 @@ const Home = () => {
                     {isAdmin ? "⚙️" : <Avatar />}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>
-                      {isAdmin ? "Admin" : userName}
-                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{isAdmin ? "Admin" : userName}</div>
                     <div style={{ fontSize: 12, color: "#999" }}>{userEmail}</div>
                   </div>
                 </div>
               )}
 
-              {/* ✅ RESTORED: All nav links in mobile menu */}
-              <a className="mobileMenuItem" href="#home" onClick={closeMenu}>Home</a>
-              <a className="mobileMenuItem" href="#products" onClick={closeMenu}>Products</a>
-              <a className="mobileMenuItem" href="#about" onClick={closeMenu}>About</a>
+              <a className="mobileMenuItem" href="#home"         onClick={closeMenu}>Home</a>
+              <a className="mobileMenuItem" href="#products"     onClick={closeMenu}>Products</a>
+              <a className="mobileMenuItem" href="#about"        onClick={closeMenu}>About</a>
               <a className="mobileMenuItem" href="#testimonials" onClick={closeMenu}>Testimonials</a>
-              <a className="mobileMenuItem" href="#blog" onClick={closeMenu}>Blog</a>
+              <a className="mobileMenuItem" href="#blog"         onClick={closeMenu}>Blog</a>
 
               <div className="mobileMenuDivider" />
 
               {isLoggedIn ? (
                 isAdmin ? (
                   <>
-                    <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/admin/dashboard"); }}>
-                      ⚙️ Admin Dashboard
-                    </button>
-                    <button className="mobileMenuItem mobileMenuItem--danger" onClick={() => { handleLogout(); closeMenu(); }}>
-                      Sign Out
-                    </button>
+                    <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/admin/dashboard"); }}>⚙️ Admin Dashboard</button>
+                    <button className="mobileMenuItem mobileMenuItem--danger" onClick={() => { handleLogout(); closeMenu(); }}>Sign Out</button>
                   </>
                 ) : (
                   <>
-                    <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/account"); }}>
-                      👤 My Account
-                    </button>
-                    <button className="mobileMenuItem mobileMenuItem--danger" onClick={() => { handleLogout(); closeMenu(); }}>
-                      Sign Out
-                    </button>
+                    <button className="mobileMenuItem" onClick={() => { closeMenu(); navigate("/account"); }}>👤 My Account</button>
+                    <button className="mobileMenuItem mobileMenuItem--danger" onClick={() => { handleLogout(); closeMenu(); }}>Sign Out</button>
                   </>
                 )
               ) : (
@@ -407,26 +380,18 @@ const Home = () => {
         </div>
       )}
 
-     {/* HERO */}
-<section id="home" className="hero">
-  <picture className="hero-media">
-    <source media="(max-width: 992px)" srcSet="/images/hero-mobile.png" />
-    <img
-      className="hero-img"
-      src="/images/hero-desktop.png"
-      alt="Eka Bhumih skincare hero banner"
-      loading="eager"
-    />
-  </picture>
+      {/* HERO */}
+      <section id="home" className="hero">
+        <picture className="hero-media">
+          <source media="(max-width: 992px)" srcSet="/images/hero-mobile.png" />
+          <img className="hero-img" src="/images/hero-desktop.png" alt="Eka Bhumih skincare hero banner" loading="eager" />
+        </picture>
+        <div className="hero-cta">
+          <button className="primary-btn" onClick={goToPriorityOneProduct}>Shop Now</button>
+        </div>
+      </section>
 
-  <div className="hero-cta">
-    <button className="primary-btn" onClick={goToPriorityOneProduct}>
-      Shop Now
-    </button>
-  </div>
-</section>
-
-      {/* ✅ RESTORED: Products section with search bar and carousel */}
+      {/* Products */}
       <section id="products" className="product-preview">
         <div className="search-wrap">
           <div className="search-box">
@@ -434,20 +399,12 @@ const Home = () => {
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search products…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button className="search-clear" onClick={() => setSearch("")} aria-label="Clear search">×</button>
-            )}
+            <input className="search-input" type="text" placeholder="Search products…" value={search} onChange={e => setSearch(e.target.value)} />
+            {search && <button className="search-clear" onClick={() => setSearch("")} aria-label="Clear search">×</button>}
           </div>
         </div>
 
-        {error && <div className="error-message">⚠️ {error}</div>}
+        {error   && <div className="error-message">⚠️ {error}</div>}
         {loading && <p className="loading-text">Loading products...</p>}
 
         {!loading && filteredProducts.length === 0 && !error && (
@@ -459,28 +416,19 @@ const Home = () => {
         {!loading && filteredProducts.length > 0 && (
           <div className="carousel-container">
             <button className="carousel-arrow prev" onClick={() => scrollCarousel("prev")} type="button" aria-label="Previous">‹</button>
-
             <div className="carousel-track" ref={trackRef}>
-              {filteredProducts.map((p) => {
-                const qty = Number(p.quantity ?? 0);
+              {filteredProducts.map(p => {
+                const qty         = Number(p.quantity ?? 0);
                 const availableSoon = qty <= 0;
-                const onView = () => { if (availableSoon) return; navigate(`/products/${p.id}`); };
-
                 return (
                   <div className="product-card" key={p.id}>
                     {availableSoon && <div className="available-soon-badge">Available Soon</div>}
-                    <img
-                      src={p.image_url}
-                      alt={p.name}
-                      className="product-image"
-                      onError={handleImageError}
-                      loading="lazy"
-                    />
+                    <img src={p.image_url} alt={p.name} className="product-image" onError={handleImageError} loading="lazy" />
                     <div className="product-info">
                       <span className="product-name">{p.name}</span>
                       <button
                         className={`view-details-btn ${availableSoon ? "isDisabled" : ""}`}
-                        onClick={onView}
+                        onClick={() => { if (!availableSoon) navigate(`/products/${p.id}`); }}
                         type="button"
                         disabled={availableSoon}
                         title={availableSoon ? "Available soon" : "View details"}
@@ -492,27 +440,14 @@ const Home = () => {
                 );
               })}
             </div>
-
             <button className="carousel-arrow next" onClick={() => scrollCarousel("next")} type="button" aria-label="Next">›</button>
           </div>
         )}
       </section>
 
-      <section id="about" className="pageSection">
-        <About />
-      </section>
-
-      <section id="blog">
-        <Blog />
-      </section>
-
-      {/* ✅ RESTORED: Testimonials and Blog with section IDs for nav links */}
-      <section id="testimonials">
-        <Testimonial onLogin={handleCredential} />
-      </section>
-
-      
-
+      <section id="about"        className="pageSection"><About /></section>
+      <section id="blog">        <Blog /></section>
+      <section id="testimonials"><Testimonial onLogin={handleCredential} /></section>
       <Footer />
     </>
   );
