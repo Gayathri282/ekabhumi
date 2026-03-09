@@ -85,11 +85,9 @@ const ProductDetails = () => {
         <button className="pd-back" onClick={() => navigate("/")}>
           ← Back
         </button>
-        <div className="pd-nav-brand">Eka Bhumi</div>
+        <div className="pd-nav-brand">EkaBhumih</div>
         <div className="pd-nav-right">
-          <button className="pd-btn pd-btn-soft" style={{ flex: "none", padding: "8px 16px", fontSize: 13 }} onClick={addToCart}>
-            🛒 Add to Cart
-          </button>
+          
         </div>
       </nav>
 
@@ -118,11 +116,10 @@ const ProductDetails = () => {
         {/* ── Right: Content ── */}
         <div className="pd-content-col">
 
-          {/* Brand tag + Name */}
+          {/* Brand tag + Name + Rating */}
           <div>
-            <div className="pd-brand-tag">🌿 Eka Bhumi</div>
+            <div className="pd-brand-tag">🌿 EkaBhumih</div>
             <h1 className="pd-name">{product.name}</h1>
-            <p className="pd-sub">Premium quality · Authentic ingredients · Trusted by thousands</p>
             <div className="pd-rating">
               <span className="pd-stars">★★★★★</span>
               <span className="pd-rating-count">4.9 · 200+ reviews</span>
@@ -135,30 +132,9 @@ const ProductDetails = () => {
               <div className="pd-price-label">Price</div>
               <div className="pd-price">₹{Number(product.price).toLocaleString("en-IN")}</div>
             </div>
-            <div className="pd-price-note">Free shipping</div>
           </div>
 
-          <div className="pd-divider" />
-
-          {/* Description */}
-          <div className="pd-desc-block">
-            <div className="pd-section-label">About this product</div>
-            <p className="pd-desc">{product.description || "No description available."}</p>
-          </div>
-
-          <div className="pd-divider" />
-
-          {/* Quantity */}
-          <div className="pd-qty-block">
-            <div className="pd-section-label">Quantity</div>
-            <div className="pd-qty-row">
-              <button className="pd-qty-btn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease">−</button>
-              <span className="pd-qty-val">{quantity}</span>
-              <button className="pd-qty-btn" onClick={incQty} aria-label="Increase">+</button>
-            </div>
-          </div>
-
-          {/* Order Summary */}
+          {/* Order Summary — right under price */}
           <div className="pd-summary">
             <div className="pd-summary-title">Order Summary</div>
             <div className="pd-srow">
@@ -179,9 +155,16 @@ const ProductDetails = () => {
             </div>
           </div>
 
-          {/* Delivery note */}
-          <div className="pd-delivery-note">
-            🚚 Estimated delivery in 3–5 business days
+          <div className="pd-divider" />
+
+          {/* Quantity */}
+          <div className="pd-qty-block">
+            <div className="pd-section-label">Quantity</div>
+            <div className="pd-qty-row">
+              <button className="pd-qty-btn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease">−</button>
+              <span className="pd-qty-val">{quantity}</span>
+              <button className="pd-qty-btn" onClick={incQty} aria-label="Increase">+</button>
+            </div>
           </div>
 
           {/* Desktop CTAs */}
@@ -194,6 +177,19 @@ const ProductDetails = () => {
                 ⚡ Buy Now
               </button>
             </div>
+          </div>
+
+          {/* Delivery note */}
+          <div className="pd-delivery-note">
+            🚚 Estimated delivery in 3–5 business days
+          </div>
+
+          <div className="pd-divider" />
+
+          {/* Description */}
+          <div className="pd-desc-block">
+            <div className="pd-section-label">About this product</div>
+            <p className="pd-desc">{product.description || "No description available."}</p>
           </div>
 
         </div>

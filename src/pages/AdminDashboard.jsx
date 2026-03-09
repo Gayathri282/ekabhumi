@@ -7,6 +7,7 @@ import AddProduct from "./AddProduct";
 import Orders from "./Orders";
 import UpdateProduct from "./UpdateProduct";
 import Reviews from "./Reviews";
+import AdminBlogs from "./AdminBlogs";
 
 const TABS = [
   { key: "orders",      label: "Pending Orders",  icon: "⏳" },
@@ -14,6 +15,7 @@ const TABS = [
   { key: "products",    label: "Products",         icon: "📦" },
   { key: "addProduct",  label: "Add Product",      icon: "➕" },
   { key: "reviews",     label: "Reviews",          icon: "💬" },
+  { key: "blogs",       label: "Blogs",            icon: "📝" },
 ];
 
 function AdminDashboard() {
@@ -476,6 +478,15 @@ function AdminDashboard() {
               </div>
               <div className={styles.card}>
                 <Reviews searchQuery={searchReviews} />
+              </div>
+            </div>
+          )}
+
+          {/* ── Blogs ── */}
+          {activeTab === "blogs" && (
+            <div className={styles.section}>
+              <div className={styles.card}>
+                <AdminBlogs />
               </div>
             </div>
           )}

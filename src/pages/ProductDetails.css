@@ -292,20 +292,26 @@
 }
 
 /* Description */
-.pd-desc-block {}
+.pd-desc-block {
+  background: #FAFAFA;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+}
+
 .pd-section-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   color: var(--muted);
   margin-bottom: 10px;
 }
 
 .pd-desc {
-  font-size: 14.5px;
-  line-height: 1.75;
-  color: var(--mid);
+  font-size: 14px;
+  line-height: 1.8;
+  color: #444;
   white-space: pre-line;
 }
 
