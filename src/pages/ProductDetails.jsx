@@ -112,12 +112,7 @@ const ProductDetails = () => {
             />
           </div>
 
-          <div className="pd-trust">
-            <span className="pd-chip">✅ Genuine Product</span>
-            <span className="pd-chip">🚚 Fast Delivery</span>
-            <span className="pd-chip">↩️ Easy Returns</span>
-            <span className="pd-chip">🔒 Secure Payment</span>
-          </div>
+
         </div>
 
         {/* ── Right: Content ── */}
@@ -176,7 +171,7 @@ const ProductDetails = () => {
             </div>
             <div className="pd-srow">
               <span>Shipping</span>
-              <span style={{ color: "#16A34A", fontWeight: 700 }}>charges will apply</span>
+              <span style={{ color: "#6B7280", fontWeight: 600, fontSize: 13 }}>Calculated at checkout</span>
             </div>
             <div className="pd-srow pd-total">
               <span>Total</span>
