@@ -9,11 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import Account from "./pages/Account";
 
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import RefundPolicy from "./pages/RefundPolicy";
-import CancellationPolicy from "./pages/CancellationPolicy";
-import ShippingAndDelivery from "./pages/ShippingAndDelivery";
+
 
 function App() {
   return (
@@ -24,12 +20,8 @@ function App() {
         <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/account" element={<Account />} />
 
-        {/* -------------------- POLICIES ------------------ */}
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-        <Route path="/refund-policy" element={<RefundPolicy />} />
-        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
-        <Route path="/shipping-and-delivery" element={<ShippingAndDelivery />} />
+       
+       
 
         {/* -------------------- ADMIN LOGIN ---------------- */}
         <Route path="/admin" element={<AdminLogin />} />

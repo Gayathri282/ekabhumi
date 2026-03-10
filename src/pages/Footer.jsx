@@ -1,6 +1,8 @@
 import React from 'react';
 import './Footer.css';
 
+
+
 const Footer = () => {
   // Social media data with actual account links
   const socialLinks = [
@@ -115,15 +117,16 @@ const Footer = () => {
         <div className="container">
           <div className="footer-bottom-content">
             
-<p className="copyright">
-  © {new Date().getFullYear()} Eka Bhumih. All Rights Reserved.
-  <a href="/terms-and-conditions"> Terms & Conditions</a> •
-  <a href="/privacy-policy"> Privacy Policy</a> •
-  <a href="/refund-policy"> Refund Policy</a> •
-  <a href="/cancellation-policy"> Cancellation Policy</a> •
-  <a href="/shipping-and-delivery"> Shipping & Delivery</a>
-</p>
-            <div className="payment-methods">
+  <p>© {new Date().getFullYear()} Ekabhumih. All Rights Reserved.</p>
+
+ <div className="footer-links">
+  <a href="/terms-and-conditions.html">Terms & Conditions</a>
+  <a href="/privacy-policy.html">Privacy Policy</a>
+  <a href="/refund-policy.html">Refund Policy</a>
+  <a href="/cancellation-policy.html">Cancellation Policy</a>
+  <a href="/shipping-and-delivery.html">Shipping & Delivery</a>
+</div>
+    <div className="payment-methods">
               <i className="fab fa-cc-visa"></i>
               <i className="fab fa-cc-mastercard"></i>
               <i className="fab fa-cc-paypal"></i>

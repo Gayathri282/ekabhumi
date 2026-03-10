@@ -340,6 +340,12 @@
   gap: 20px;
 }
 
+.footer-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+}
+
 .payment-methods i {
   font-size: 28px;
   color: #999;
