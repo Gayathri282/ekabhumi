@@ -114,11 +114,13 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="container">
           <div className="footer-bottom-content">
-            <p className="copyright">
+            
+<p className="copyright">
   © {new Date().getFullYear()} Eka Bhumih. All Rights Reserved.
   <a href="/terms-and-conditions"> Terms & Conditions</a> •
   <a href="/privacy-policy"> Privacy Policy</a> •
-  <a href="/refund-and-cancellation"> Refund & Cancellation</a> •
+  <a href="/refund-policy"> Refund Policy</a> •
+  <a href="/cancellation-policy"> Cancellation Policy</a> •
   <a href="/shipping-and-delivery"> Shipping & Delivery</a>
 </p>
             <div className="payment-methods">

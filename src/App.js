@@ -7,12 +7,12 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-
-import Account from "./pages/Account";            // ← added
+import Account from "./pages/Account";
 
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
-import RefundAndCancellation from "./pages/RefundAndCancellation";
+import RefundPolicy from "./pages/RefundPolicy";
+import CancellationPolicy from "./pages/CancellationPolicy";
 import ShippingAndDelivery from "./pages/ShippingAndDelivery";
 
 function App() {
@@ -22,14 +22,13 @@ function App() {
         {/* -------------------- PUBLIC -------------------- */}
         <Route path="/" element={<Home />} />
         <Route path="/products/:id" element={<ProductDetails />} />
-
-      
-        <Route path="/account" element={<Account />} />   {/* ← added */}
+        <Route path="/account" element={<Account />} />
 
         {/* -------------------- POLICIES ------------------ */}
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-        <Route path="/refund-and-cancellation" element={<RefundAndCancellation />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
         <Route path="/shipping-and-delivery" element={<ShippingAndDelivery />} />
 
         {/* -------------------- ADMIN LOGIN ---------------- */}
