@@ -125,10 +125,10 @@ const LoginGate = ({ onClose, onLoginSuccess }) => {
 // ── Main BuyModal ─────────────────────────────────────────────────────────────
 const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
   const [orderLoading, setOrderLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg]     = useState("Processing...");
-  const [serverTotal, setServerTotal]   = useState(null);
+  const [loadingMsg, setLoadingMsg] = useState("Processing...");
+  const [payableAmount, setPayableAmount] = useState(null);
   const [showLoginGate, setShowLoginGate] = useState(false);
-  const verifiedRef                     = useRef(false);
+  const verifiedRef = useRef(false);
 
   const [orderForm, setOrderForm] = useState({
     fullName: "",
@@ -154,7 +154,7 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
 
   useEffect(() => {
     if (!open) return;
-    setServerTotal(null);
+    setPayableAmount(null);
     verifiedRef.current = false;
     setShowLoginGate(false);
 
@@ -229,40 +229,41 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
     setOrderForm((prev) => ({ ...prev, [name]: value }));
   };
 
-const validateForm = () => {
-  const { fullName, phoneNumber, email, address, city, state, pincode } = orderForm;
+  const validateForm = () => {
+    const { fullName, phoneNumber, email, address, city, state, pincode } = orderForm;
 
-  if (!fullName.trim()) {
-    alert("Please enter your full name");
-    return false;
-  }
-  if (!phoneNumber.trim() || !/^\d{10}$/.test(phoneNumber)) {
-    alert("Please enter a valid 10-digit phone number");
-    return false;
-  }
-  if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-    alert("Please enter a valid email address");
-    return false;
-  }
-  if (!address.trim()) {
-    alert("Please enter your delivery address");
-    return false;
-  }
-  if (!city.trim()) {
-    alert("Please enter your city");
-    return false;
-  }
-  if (!state.trim()) {
-    alert("Please enter your state");
-    return false;
-  }
-  if (!pincode.trim() || !/^\d{6}$/.test(pincode)) {
-    alert("Please enter a valid 6-digit pincode");
-    return false;
-  }
+    if (!fullName.trim()) {
+      alert("Please enter your full name");
+      return false;
+    }
+    if (!phoneNumber.trim() || !/^\d{10}$/.test(phoneNumber)) {
+      alert("Please enter a valid 10-digit phone number");
+      return false;
+    }
+    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+      alert("Please enter a valid email address");
+      return false;
+    }
+    if (!address.trim()) {
+      alert("Please enter your delivery address");
+      return false;
+    }
+    if (!city.trim()) {
+      alert("Please enter your city");
+      return false;
+    }
+    if (!state.trim()) {
+      alert("Please enter your state");
+      return false;
+    }
+    if (!pincode.trim() || !/^\d{6}$/.test(pincode)) {
+      alert("Please enter a valid 6-digit pincode");
+      return false;
+    }
 
-  return true;
-};
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (orderLoading) return;
     if (!product) return;
@@ -282,7 +283,7 @@ const validateForm = () => {
 
     setOrderLoading(true);
     setLoadingMsg("Connecting to server...");
-    setServerTotal(null);
+    setPayableAmount(null);
     verifiedRef.current = false;
 
     try {
@@ -304,8 +305,8 @@ const validateForm = () => {
       // 1) Create DB order
       const created = await createOrder(orderPayload);
 
-      const orderObj    = created?.order;
-      const dbOrderId   = orderObj?.id;
+      const orderObj = created?.order;
+      const dbOrderId = orderObj?.id;
       const publicToken = created?.public_token;
 
       if (!dbOrderId || !publicToken) {
@@ -317,7 +318,7 @@ const validateForm = () => {
 
       const total = Number(orderObj?.total_amount || 0);
       if (!total || total <= 0) throw new Error("Invalid server total. Please try again.");
-      setServerTotal(total);
+      setPayableAmount(total);
 
       // 2) Create Razorpay order
       const rp = await createRazorpayOrder({
@@ -422,10 +423,10 @@ const validateForm = () => {
               </span>
             </div>
 
-            {serverTotal != null && (
+            {payableAmount != null && (
               <div className="buy-row buy-total" style={{ marginTop: 10 }}>
                 <span>Server Total</span>
-                <span>₹{Number(serverTotal).toFixed(2)}</span>
+                <span>₹{Number(payableAmount).toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -483,8 +484,8 @@ const validateForm = () => {
           <button className="buy-btn buy-primary" onClick={handleSubmit} disabled={orderLoading}>
             {orderLoading
               ? loadingMsg
-              : serverTotal != null
-              ? `Pay ₹${Number(serverTotal).toFixed(2)}`
+              : payableAmount != null
+              ? `Pay ₹${Number(payableAmount).toFixed(2)}`
               : "Proceed to Pay"}
           </button>
         </div>
