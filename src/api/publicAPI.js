@@ -14,15 +14,10 @@ const handleJson = async (res, defaultErr = "Request failed") => {
   return data;
 };
 
-// ── Warmup: wake server before important POST calls ──────────────────────────
-const warmupServer = async () => {
-  try {
-    await fetch(getUrl("/health"), { method: "GET" });
-    // Give server 800ms to be fully ready
-    await new Promise(r => setTimeout(r, 800));
-  } catch {
-    // ignore warmup errors
-  }
+// ── Passive warmup: call this fire-and-forget from the page, never await it ──
+// This wakes the Render.com server in the background without blocking the user.
+export const passiveWarmup = () => {
+  fetch(getUrl("/health"), { method: "GET" }).catch(() => {});
 };
 
 // ── Fetch with retry (for cold start recovery) ────────────────────────────────
@@ -46,11 +41,11 @@ const fetchWithRetry = async (url, options, retries = 3, delayMs = 5000) => {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function fetchProducts() {
+  // No Cache-Control: no-cache — let the browser cache this for the session.
+  // The product list rarely changes mid-session; localStorage is the source of
+  // truth for cross-session freshness.
   const res = await fetch(getUrl("/products"), {
-    headers: {
-      Accept: "application/json",
-      "Cache-Control": "no-cache",
-    },
+    headers: { Accept: "application/json" },
     mode: "cors",
     credentials: "omit",
   });
@@ -79,14 +74,8 @@ export async function fetchProductById(id) {
   return handleJson(res, "Failed to fetch product");
 }
 
-/**
- * PUBLIC: Create order
- * Warms up server first, then retries on connection failure
- */
+// ── Create order — retries on cold start, no artificial delay ────────────────
 export async function createOrder(orderData) {
-  // Wake server before placing order
-  await warmupServer();
-
   const res = await fetchWithRetry(
     getUrl("/orders"),
     {
@@ -97,16 +86,14 @@ export async function createOrder(orderData) {
       },
       body: JSON.stringify(orderData),
     },
-    3,   // 3 attempts
-    5000 // 5 seconds between retries
+    3,
+    5000
   );
 
   return handleJson(res, "Failed to create order");
 }
 
-/**
- * USER: Get my orders (requires JWT)
- */
+// ── USER: Get my orders (requires JWT) ───────────────────────────────────────
 export async function fetchMyOrders() {
   const res = await fetch(getUrl("/orders/me"), {
     headers: {
@@ -118,9 +105,7 @@ export async function fetchMyOrders() {
   return handleJson(res, "Failed to fetch my orders");
 }
 
-/**
- * PUBLIC: Get order by id + public_token
- */
+// ── PUBLIC: Get order by id + public_token ────────────────────────────────────
 export async function fetchOrderByToken(orderId, publicToken) {
   if (!orderId) throw new Error("Missing order id");
   if (!publicToken) throw new Error("Missing order token");
@@ -136,13 +121,8 @@ export async function fetchOrderByToken(orderId, publicToken) {
   return handleJson(res, "Failed to fetch order");
 }
 
-/**
- * PUBLIC: Create Razorpay order
- * Also warms up server before calling
- */
+// ── Create Razorpay order — retries on cold start, no artificial delay ────────
 export async function createRazorpayOrder({ order_id, email, phone }) {
-  await warmupServer();
-
   const res = await fetchWithRetry(
     getUrl("/payments/razorpay/create-order"),
     {

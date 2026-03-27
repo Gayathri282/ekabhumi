@@ -1,13 +1,17 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, {
+  useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense
+} from "react";
 import { useNavigate } from "react-router-dom";
 import "./Home.css";
-import About from "./About";
-import Blog from "./Blog";
-import Testimonial from "./Testimonial";
-import Footer from "./Footer";
-import { fetchProducts } from "../api/publicAPI";
+import { fetchProducts, passiveWarmup } from "../api/publicAPI";
 import { googleLogin, logout, hasSession, autoRefreshToken } from "../api/authAPI";
 import ProductSection from "./ProductSection";
+
+// Below-fold sections — only downloaded when user scrolls or they mount
+const About      = lazy(() => import("./About"));
+const Blog       = lazy(() => import("./Blog"));
+const Testimonial = lazy(() => import("./Testimonial"));
+const Footer     = lazy(() => import("./Footer"));
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 const API_BASE = process.env.REACT_APP_API_URL || "https://ekb-backend.onrender.com";
@@ -22,6 +26,21 @@ function initGoogleOneTap(callback) {
   });
 }
 
+// ── Avatar — defined OUTSIDE Home so it never gets recreated on re-render ────
+const Avatar = React.memo(({ picture, name, initial }) => {
+  if (picture) {
+    return (
+      <img
+        src={picture}
+        alt={name}
+        style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+        onError={e => { e.currentTarget.style.display = "none"; }}
+      />
+    );
+  }
+  return <span style={{ fontWeight: 800, fontSize: 15 }}>{initial}</span>;
+});
+
 const Home = () => {
   const [scrolled, setScrolled]                   = useState(false);
   const [menuOpen, setMenuOpen]                   = useState(false);
@@ -32,7 +51,6 @@ const Home = () => {
   const [loading, setLoading]                     = useState(false);
   const [error, setError]                         = useState("");
 
-  // Hero banner state — falls back to local images if API has nothing yet
   const [heroBanner, setHeroBanner] = useState({
     desktop_image: "/images/hero-desktop.png",
     mobile_image:  "/images/hero-mobile.png",
@@ -48,11 +66,14 @@ const Home = () => {
     try { return JSON.parse(localStorage.getItem("userData") || "{}"); } catch { return {}; }
   });
 
-  // ── Refs ──────────────────────────────────────────────────────────────────
   const loginDropdownRef = useRef(null);
   const navigate         = useNavigate();
 
-  const isAdmin = userData?.role === "admin";
+  const isAdmin    = userData?.role === "admin";
+  const userEmail   = userData?.email   || "";
+  const userName    = userData?.name    || userEmail.split("@")[0] || "";
+  const userPicture = userData?.picture || null;
+  const userInitial = (userName[0] || userEmail[0] || "U").toUpperCase();
 
   // ── Hero banner fetch ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -69,10 +90,10 @@ const Home = () => {
             : "/images/hero-mobile.png",
         });
       })
-      .catch(() => {/* silently keep defaults */});
+      .catch(() => {});
   }, []);
 
-  // ── Products ─────────────────────────────────────────────────────────────
+  // ── Products ──────────────────────────────────────────────────────────────
   const sortedProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
     return [...products].sort((a, b) => {
@@ -141,7 +162,6 @@ const Home = () => {
     }
   }, [handleCredential]);
 
-  // ── Callback ref: renders Google button the moment the div mounts ─────────
   const googleBtnCallbackRef = useCallback((el) => {
     if (!el || isLoggedIn || !window.google?.accounts?.id) return;
     setTimeout(() => {
@@ -190,7 +210,7 @@ const Home = () => {
     return () => { document.body.style.overflow = prev; };
   }, [menuOpen]);
 
-  // ── Products load ─────────────────────────────────────────────────────────
+  // ── Products load — passive warmup, NO focus reload ───────────────────────
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -205,17 +225,19 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // Fire-and-forget warmup so Render.com server is ready before user checks out
+    passiveWarmup();
+
     loadData();
+
+    // Only reload when another tab explicitly triggers a product update (admin saves)
     const sync = (e) => { if (e.key === "productsUpdated") loadData(); };
     window.addEventListener("storage", sync);
-    window.addEventListener("focus", loadData);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("focus", loadData);
-    };
+    // Removed: window.addEventListener("focus", loadData) — was hitting API on every tab switch
+    return () => window.removeEventListener("storage", sync);
   }, [loadData]);
 
   useEffect(() => {
@@ -225,24 +247,13 @@ const Home = () => {
   }, []);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const handleLogoError  = (e) => { e.target.onerror = null; e.target.src = "/images/logo-placeholder.png"; };
+  const handleLogoError = (e) => { e.target.onerror = null; e.target.src = "/images/logo-placeholder.png"; };
 
   const goToPriorityOneProduct = () => {
     const top = sortedProducts.find(p => Number(p.priority) === 1) || sortedProducts[0];
     if (top?.id) navigate(`/products/${top.id}`);
     else document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
   };
-
-  const userEmail   = userData?.email   || "";
-  const userName    = userData?.name    || userEmail.split("@")[0] || "";
-  const userPicture = userData?.picture || null;
-  const userInitial = (userName[0] || userEmail[0] || "U").toUpperCase();
-
-  const Avatar = () => (
-    userPicture
-      ? <img src={userPicture} alt={userName} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} onError={e => { e.currentTarget.style.display = "none"; }} />
-      : <span style={{ fontWeight: 800, fontSize: 15 }}>{userInitial}</span>
-  );
 
   // ── Auth section ──────────────────────────────────────────────────────────
   const renderAuthSection = () => (
@@ -263,7 +274,7 @@ const Home = () => {
             title={`${userName} — My Account`}
             style={{ width: 38, height: 38, borderRadius: "50%", padding: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: userPicture ? "transparent" : "#F26722", color: "#fff", border: userPicture ? "2px solid #F26722" : "none" }}
           >
-            <Avatar />
+            <Avatar picture={userPicture} name={userName} initial={userInitial} />
           </button>
         )
       ) : (
@@ -292,7 +303,7 @@ const Home = () => {
         <div className="auth-dropdown">
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid #f0ebe4" }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "#F26722", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15 }}>
-              <Avatar />
+              <Avatar picture={userPicture} name={userName} initial={userInitial} />
             </div>
             <div>
               {userName && <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{userName}</div>}
@@ -349,7 +360,7 @@ const Home = () => {
               {isLoggedIn && (
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: isAdmin ? "#fff3e8" : "#fff7f2", borderRadius: 14, marginBottom: 12 }}>
                   <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "#F26722", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 17 }}>
-                    {isAdmin ? "⚙️" : <Avatar />}
+                    {isAdmin ? "⚙️" : <Avatar picture={userPicture} name={userName} initial={userInitial} />}
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{isAdmin ? "Admin" : userName}</div>
@@ -395,7 +406,6 @@ const Home = () => {
       {/* ── HERO ── */}
       <section id="home" className="hero">
         <picture className="hero-media">
-          {/* Mobile image swaps at ≤768px */}
           <source media="(max-width: 768px)" srcSet={heroBanner.mobile_image} />
           <img
             className="hero-img"
@@ -409,7 +419,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ── Products ── */}
+      {/* ── Products — above fold, no Suspense needed ── */}
       <ProductSection
         products={filteredProducts}
         loading={loading}
@@ -420,10 +430,13 @@ const Home = () => {
         isLoggedIn={isLoggedIn}
       />
 
-      <section id="about"        className="pageSection"><About /></section>
-      <Blog />
-      <section id="testimonials"><Testimonial onLogin={handleCredential} /></section>
-      <Footer />
+      {/* ── Below-fold sections — lazy loaded ── */}
+      <Suspense fallback={null}>
+        <section id="about" className="pageSection"><About /></section>
+        <Blog />
+        <section id="testimonials"><Testimonial onLogin={handleCredential} /></section>
+        <Footer />
+      </Suspense>
     </>
   );
 };
