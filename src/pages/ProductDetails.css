@@ -22,7 +22,6 @@
   position: relative;
   min-height: 100vh;
   padding-top: 104px;
-  padding-bottom: 120px;
   background: linear-gradient(180deg, #fbf8f3 0%, #ffffff 38%, #f9faf7 100%);
   font-family: "DM Sans", system-ui, sans-serif;
   color: var(--pd-text);
