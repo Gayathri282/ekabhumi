@@ -1,138 +1,70 @@
-import React from 'react';
-import './Footer.css';
-
-
+import React from "react";
+import "./Footer.css";
 
 const Footer = () => {
-  // Social media data with actual account links
   const socialLinks = [
-    { 
-      id: 1, 
-      name: 'Facebook', 
-      icon: 'fab fa-facebook-f', 
-      url: 'https://www.facebook.com/ekabhumih' 
+    {
+      id: 1,
+      name: "Facebook",
+      icon: "fab fa-facebook-f",
+      url: "https://www.facebook.com/ekabhumih",
     },
-    { 
-      id: 2, 
-      name: 'Twitter', 
-      icon: 'fab fa-twitter', 
-      url: 'https://twitter.com/ekabhumih' 
+    {
+      id: 2,
+      name: "Twitter",
+      icon: "fab fa-twitter",
+      url: "https://twitter.com/ekabhumih",
     },
-    { 
-      id: 3, 
-      name: 'Instagram', 
-      icon: 'fab fa-instagram', 
-      url: 'https://www.instagram.com/ekabhumih' 
+    {
+      id: 3,
+      name: "Instagram",
+      icon: "fab fa-instagram",
+      url: "https://www.instagram.com/ekabhumih",
     },
-   
-   
-    
   ];
 
-  
- 
+  const legalLinks = [
+    { label: "Terms", href: "/terms-and-conditions.html" },
+    { label: "Privacy", href: "/privacy-policy.html" },
+    { label: "Refunds", href: "/refund-policy.html" },
+    { label: "Cancellation", href: "/cancellation-policy.html" },
+    { label: "Shipping", href: "/shipping-and-delivery.html" },
+  ];
 
   return (
     <footer id="footer" className="footer">
-      <div className="footer-top">
-        <div className="container">
-          <div className="footer-grid">
-            
-            {/* Column 1: About */}
-            <div className="footer-column">
-              <div className="footer-logo">
-                <span className="brand">
-                  eka<span>Bhumih</span>
-                </span>
-              </div>
-             
-              
-                <div className="color-items">
-                  
-                  
-                  
-                
-              </div>
-            </div>
-
-           
-
-            
-
-            {/* Column 4: Contact & Social */}
-            <div className="footer-column">
-              <h3 className="footer-title">bhumihlifestyle@gmail.com</h3>
-              <div className="contact-info">
-                <div className="contact-item">
-                  <i className="fas fa-map-marker-alt"></i>
-                  <span>kaloor,kochi</span>
-                </div>
-                <div className="contact-item">
-                  <i className="fas fa-phone"></i>
-                  <span>+91 7829033319</span>
-                </div>
-                <div className="contact-item">
-                  <i className="fas fa-envelope"></i>
-                  <span>bhumihlifestyle@gmail.com</span>
-                </div>
-                <div className="contact-item">
-              
-                </div>
-              </div>
-
-              <h3 className="footer-title">Follow Us</h3>
-              <div className="social-links">
-                {socialLinks.map(social => (
-                  <a 
-                    key={social.id} 
-                    href={social.url} 
-                    className="social-link"
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    aria-label={social.name}
-                    title={social.name}
-                  >
-                    <i className={social.icon}></i>
-                  </a>
-                ))}
-              </div>
-
-              <div className="newsletter">
-                <h4>Newsletter</h4>
-                <p>Subscribe for updates and offers</p>
-                <div className="newsletter-form">
-                  <input type="email" placeholder="Your email address" />
-                  <button type="submit" aria-label="Subscribe">
-                    <i className="fas fa-paper-plane"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
+      <div className="footer-strip">
+        <div className="footer-strip__brand">
+          <img src="/images/logo-white.png" alt="Eka Bhumih" className="footer-brand-logo" />
+          {/* <span className="footer-copy">Copyright {new Date().getFullYear()} Ekabhumih</span> */}
         </div>
-      </div>
 
-      <div className="footer-bottom">
-        <div className="container">
-          <div className="footer-bottom-content">
-            
-  <p>© {new Date().getFullYear()} Ekabhumih. All Rights Reserved.</p>
+        <div className="footer-strip__contact">
+          <a href="mailto:bhumihlifestyle@gmail.com">bhumihlifestyle@gmail.com</a>
+          <span>Kaloor, Kochi</span>
+          <a href="tel:+917829033319">+91 7829033319</a>
+        </div>
 
- <div className="footer-links">
-  <a href="/terms-and-conditions.html">Terms & Conditions</a>
-  <a href="/privacy-policy.html">Privacy Policy</a>
-  <a href="/refund-policy.html">Refund Policy</a>
-  <a href="/cancellation-policy.html">Cancellation Policy</a>
-  <a href="/shipping-and-delivery.html">Shipping & Delivery</a>
-</div>
-    <div className="payment-methods">
-              <i className="fab fa-cc-visa"></i>
-              <i className="fab fa-cc-mastercard"></i>
-              <i className="fab fa-cc-paypal"></i>
-              <i className="fab fa-cc-apple-pay"></i>
-            </div>
-          </div>
+        <div className="footer-strip__links">
+          {legalLinks.map((link) => (
+            <a key={link.href} href={link.href}>{link.label}</a>
+          ))}
+        </div>
+
+        <div className="footer-strip__social">
+          {socialLinks.map((social) => (
+            <a
+              key={social.id}
+              href={social.url}
+              className="footer-social"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={social.name}
+              title={social.name}
+            >
+              <i className={social.icon}></i>
+            </a>
+          ))}
         </div>
       </div>
     </footer>

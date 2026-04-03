@@ -4,22 +4,29 @@
 
 .ac-page {
   min-height: 100vh;
-  background: #F9F9F9;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  padding-top: 104px;
+  background: linear-gradient(180deg, #fbf8f3 0%, #ffffff 38%, #f9faf7 100%);
+  font-family: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  color: #173326;
 }
 
 /* ── Topbar ── */
 .ac-topbar {
-  background: #fff;
-  border-bottom: 1px solid #EBEBEB;
+  width: min(560px, calc(100% - 32px));
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(27, 67, 50, 0.08);
+  border-radius: 24px;
   padding: 0 20px;
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
-  top: 0;
-  z-index: 100;
+  top: 98px;
+  z-index: 120;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 38px rgba(27, 67, 50, 0.08);
 }
 
 .ac-back-btn {
@@ -69,7 +76,7 @@
 .ac-body {
   max-width: 560px;
   margin: 0 auto;
-  padding: 24px 16px 96px;
+  padding: 20px 16px 96px;
 }
 
 /* ── Profile card ── */
@@ -829,6 +836,7 @@
   }
 
   .ac-topbar {
+    width: calc(100% - 28px);
     padding: 0 14px;
   }
 
@@ -848,13 +856,19 @@
 
 /* ── Mobile ── */
 @media (max-width: 480px) {
+  .ac-page {
+    padding-top: 92px;
+  }
+
   .ac-body {
     padding: 14px 12px 84px;
   }
 
   .ac-topbar {
+    width: calc(100% - 24px);
     height: 54px;
     padding: 0 12px;
+    top: 84px;
   }
 
   .ac-topbar-title {
@@ -995,6 +1009,7 @@
 /* ── Very small screens ── */
 @media (max-width: 360px) {
   .ac-topbar {
+    width: calc(100% - 20px);
     padding: 0 10px;
   }
 

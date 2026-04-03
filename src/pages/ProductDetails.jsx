@@ -1,18 +1,67 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { fetchProductById } from "../api/publicAPI";
 import BuyModal from "../components/Buy";
+import PublicNavbar from "../components/PublicNavbar";
+import Footer from "./Footer";
 import "./ProductDetails.css";
 
-const ProductDetails = () => {
-  const { id }       = useParams();
-  const navigate     = useNavigate();
+const PRODUCT_COMPARE_ROWS = [
+  {
+    label: "Formula direction",
+    ours: "Botanical-led care designed for a cleaner, calmer routine.",
+    typical: "Often built around generic positioning with less emphasis on ritual.",
+  },
+  {
+    label: "Daily feel",
+    ours: "Lightweight, premium presentation with a softer care experience.",
+    typical: "Can feel functional first, with less attention to sensory experience.",
+  },
+  {
+    label: "Routine design",
+    ours: "Made to fit into a minimal, repeatable everyday habit.",
+    typical: "Can depend on a more crowded or inconsistent routine.",
+  },
+  {
+    label: "Ingredient story",
+    ours: "Redensyl-focused with a botanical, modern-care identity.",
+    typical: "Broader claims without a clearly framed hero active.",
+  },
+];
 
-  const [product,  setProduct]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState("");
+const RESULTS_STEPS = [
+  {
+    phase: "Weeks 1-4",
+    title: "Cleaner ritual",
+    copy: "The routine feels easier to repeat, with a lighter and more premium day-to-day experience.",
+  },
+  {
+    phase: "Weeks 4-8",
+    title: "Consistency builds",
+    copy: "Repeated use supports a more intentional care pattern, which matters more than adding complexity.",
+  },
+  {
+    phase: "Weeks 8-12",
+    title: "Visible support",
+    copy: "With consistent use, users often look for fuller-looking, healthier-feeling hair over time.",
+  },
+];
+
+const PRODUCT_BADGES = [
+  "Minimal routine",
+  "Botanical focus",
+  "Premium everyday care",
+];
+
+const ProductDetails = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [showBuy,  setShowBuy]  = useState(false);
+  const [showBuy, setShowBuy] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -28,193 +77,287 @@ const ProductDetails = () => {
         setLoading(false);
       }
     }
+
     load();
   }, [id]);
 
-  // ── Cart helpers ─────────────────────────────────────────────────────────────
-  const getCart  = () => { try { return JSON.parse(localStorage.getItem("cart") || "[]"); } catch { return []; } };
-  const saveCart = (next) => { localStorage.setItem("cart", JSON.stringify(next)); window.dispatchEvent(new Event("cart:updated")); };
+  const getCart = () => {
+    try {
+      return JSON.parse(localStorage.getItem("cart") || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const saveCart = (next) => {
+    localStorage.setItem("cart", JSON.stringify(next));
+    window.dispatchEvent(new Event("cart:updated"));
+  };
 
   const addToCart = () => {
     if (!product) return;
     const cart = getCart();
     const existing = cart.find((x) => String(x.id) === String(product.id));
-    saveCart(existing
-      ? cart.map((x) => String(x.id) === String(product.id) ? { ...x, qty: Number(x.qty || 1) + quantity } : x)
-      : [...cart, { id: product.id, name: product.name, price: product.price, image_url: product.image_url, qty: quantity }]
+    saveCart(
+      existing
+        ? cart.map((x) => (
+          String(x.id) === String(product.id)
+            ? { ...x, qty: Number(x.qty || 1) + quantity }
+            : x
+        ))
+        : [...cart, {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image_url: product.image_url,
+          qty: quantity,
+        }]
     );
-    alert("✅ Added to cart!");
+    alert("Added to cart.");
   };
 
   const handleImageError = (e) => {
     e.target.onerror = null;
-    e.target.src = "https://placehold.co/900x900/FFF3EB/F26722?text=Product";
+    e.target.src = "https://placehold.co/900x900/EDF5EF/1B4332?text=Product";
   };
 
   const totalPrice = useMemo(() => Number(product?.price || 0) * quantity, [product, quantity]);
+  const isAvailableSoon = Number(product?.quantity ?? 0) <= 0;
+  const shortDescription = useMemo(() => {
+    if (!product?.description) {
+      return "A refined botanical formula designed to bring more clarity and calm to everyday hair care.";
+    }
+    return product.description.length > 180
+      ? `${product.description.slice(0, 180)}...`
+      : product.description;
+  }, [product]);
+
   const decQty = () => setQuantity((p) => Math.max(1, p - 1));
   const incQty = () => setQuantity((p) => p + 1);
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="pd-page">
-      <div className="pd-state">
-        <div className="pd-spinner" />
-        <p>Loading product…</p>
+  if (loading) {
+    return (
+      <div className="pd-page">
+        <PublicNavbar />
+        <div className="pd-state">
+          <div className="pd-spinner" />
+          <p>Loading product...</p>
+        </div>
+        <Footer />
       </div>
-    </div>
-  );
+    );
+  }
 
-  // ── Error ────────────────────────────────────────────────────────────────────
-  if (error || !product) return (
-    <div className="pd-page">
-      <div className="pd-state">
-        <div style={{ fontSize: 48 }}>🌿</div>
-        <h2>Product Not Found</h2>
-        <p>{error || "The product you're looking for doesn't exist."}</p>
-        <button className="pd-btn pd-btn-outline" onClick={() => navigate("/")}>← Back to Home</button>
+  if (error || !product) {
+    return (
+      <div className="pd-page">
+        <PublicNavbar />
+        <div className="pd-state">
+          <div className="pd-state-mark">O</div>
+          <h2>Product Not Found</h2>
+          <p>{error || "The product you're looking for doesn't exist."}</p>
+          <button className="pd-btn pd-btn-outline" onClick={() => navigate("/")}>Back to Home</button>
+        </div>
+        <Footer />
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="pd-page">
+      <div className="pd-page-ambient pd-page-ambient--one" />
+      <div className="pd-page-ambient pd-page-ambient--two" />
+      <PublicNavbar />
 
-      {/* ── Navbar ── */}
-      <nav className="pd-navbar">
-        <button className="pd-back" onClick={() => navigate("/")}>
-          ← Back
-        </button>
-        <div className="pd-nav-brand">EkaBhumih</div>
-        <div className="pd-nav-right">
-          
-        </div>
-      </nav>
-
-      {/* ── Hero ── */}
-      <div className="pd-hero">
-
-        {/* ── Left: Image ── */}
-        <div className="pd-image-col">
-          <div className="pd-image-main">
-            <div className="pd-image-badge">
-              <span className="pd-badge pd-badge--organic">🌿 Natural</span>
-              <span className="pd-badge pd-badge--bestseller">⭐ Bestseller</span>
-            </div>
-            <img
-              src={product.image_url}
-              alt={product.name}
-              className="pd-image"
-              onError={handleImageError}
-              loading="eager"
-            />
-          </div>
-
-
-        </div>
-
-        {/* ── Right: Content ── */}
-        <div className="pd-content-col">
-
-          {/* Brand tag + Name + Rating */}
-          <div>
-            <div className="pd-brand-tag">🌿 EkaBhumih</div>
-            <h1 className="pd-name">{product.name}</h1>
-            <div className="pd-rating">
-              <span className="pd-stars">★★★★★</span>
-              <span className="pd-rating-count">4.9 · 200+ reviews</span>
+      <main className="pd-main">
+        <section className="pd-hero">
+          <div className="pd-hero-media">
+            <div className="pd-image-card">
+              <div className="pd-image-badges">
+                <span className="pd-badge pd-badge--soft">Botanical care</span>
+                <span className={`pd-badge ${isAvailableSoon ? "pd-badge--muted" : "pd-badge--solid"}`}>
+                  {isAvailableSoon ? "Available Soon" : "Ready to order"}
+                </span>
+              </div>
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="pd-image"
+                onError={handleImageError}
+                loading="eager"
+              />
             </div>
           </div>
 
-          {/* Price */}
-          <div className="pd-price-block">
-            <div>
-              <div className="pd-price-label">Price</div>
-              <div className="pd-price">₹{Number(product.price).toLocaleString("en-IN")}</div>
+          <div className="pd-hero-copy">
+            <div className="pd-copy-card">
+              <span className="pd-kicker">Best Seller</span>
+              <h1 className="pd-name">{product.name}</h1>
+              <p className="pd-summary-text">{shortDescription}</p>
+
+              <div className="pd-badge-row">
+                {PRODUCT_BADGES.map((badge) => (
+                  <span key={badge} className="pd-inline-pill">{badge}</span>
+                ))}
+              </div>
+
+              <div className="pd-price-panel">
+                <div>
+                  <div className="pd-price-label">Price</div>
+                  <div className="pd-price">Rs {Number(product.price).toLocaleString("en-IN")}</div>
+                </div>
+                <div className="pd-price-note">
+                  {isAvailableSoon ? "Launching soon" : "Made for a simple, repeatable routine"}
+                </div>
+              </div>
+
+              <div className="pd-qty-wrap">
+                <div className="pd-section-label">Quantity</div>
+                <div className="pd-qty-row">
+                  <button className="pd-qty-btn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease quantity">-</button>
+                  <span className="pd-qty-val">{quantity}</span>
+                  <button className="pd-qty-btn" onClick={incQty} aria-label="Increase quantity">+</button>
+                </div>
+              </div>
+
+              <div className="pd-hero-actions">
+                <button className="pd-btn pd-btn-primary" onClick={() => setShowBuy(true)} disabled={isAvailableSoon}>
+                  {isAvailableSoon ? "Coming Soon" : "Buy Now"}
+                </button>
+                <button className="pd-btn pd-btn-soft" onClick={addToCart} disabled={isAvailableSoon}>
+                  Add to Cart
+                </button>
+              </div>
             </div>
+
+            {/* <aside className="pd-order-card">
+              <div className="pd-order-title">Order summary</div>
+              <div className="pd-order-row">
+                <span>Unit price</span>
+                <span>Rs {Number(product.price).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="pd-order-row">
+                <span>Quantity</span>
+                <span>x {quantity}</span>
+              </div>
+              <div className="pd-order-row">
+                <span>Delivery</span>
+                <span>3-5 business days</span>
+              </div>
+              <div className="pd-order-row pd-order-row--total">
+                <span>Total</span>
+                <span>Rs {totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              </div>
+              <p className="pd-order-note">
+                Results vary by individual consistency, scalp condition, and routine.
+              </p>
+            </aside> */}
           </div>
+        </section>
 
-          {/* Order Summary — right under price */}
-          <div className="pd-summary">
-            <div className="pd-summary-title">Order Summary</div>
-            <div className="pd-srow">
-              <span>Unit price</span>
-              <span>₹{Number(product.price).toLocaleString("en-IN")}</span>
+        <section className="pd-proof-strip">
+          <article className="pd-proof-card">
+            <span className="pd-proof-num">01</span>
+            <h3>Cleaner experience</h3>
+            <p>Designed to feel calm, premium, and easier to keep using.</p>
+          </article>
+          <article className="pd-proof-card">
+            <span className="pd-proof-num">02</span>
+            <h3>Clear positioning</h3>
+            <p>Redensyl-led care with a simpler, more intentional story.</p>
+          </article>
+          <article className="pd-proof-card">
+            <span className="pd-proof-num">03</span>
+            <h3>Routine-first</h3>
+            <p>The best product is the one you can actually stay consistent with.</p>
+          </article>
+        </section>
+
+        <section className="pd-detail-grid">
+          <section className="pd-section-card">
+            <span className="pd-section-kicker">What makes it different</span>
+            <h2>Same category, clearer direction.</h2>
+            <div className="pd-compare-table-wrap">
+              <table className="pd-compare-table">
+                <thead>
+                  <tr>
+                    <th>Element</th>
+                    <th>Our product</th>
+                    <th>Typical alternatives</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRODUCT_COMPARE_ROWS.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.label}</td>
+                      <td>{row.ours}</td>
+                      <td>{row.typical}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="pd-srow">
-              <span>Quantity</span>
-              <span>× {quantity}</span>
+          </section>
+
+          <section className="pd-section-card">
+            <span className="pd-section-kicker">Results rhythm</span>
+            <h2>What consistent use is designed to support.</h2>
+            <div className="pd-results-steps">
+              {RESULTS_STEPS.map((step) => (
+                <article key={step.phase} className="pd-result-card">
+                  <span className="pd-result-phase">{step.phase}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.copy}</p>
+                </article>
+              ))}
             </div>
-            <div className="pd-srow">
-              <span>Shipping</span>
-              <span style={{ color: "#6B7280", fontWeight: 600, fontSize: 13 }}>Calculated at checkout</span>
-            </div>
-            <div className="pd-srow pd-total">
-              <span>Total</span>
-              <span>₹{totalPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
+          </section>
+        </section>
 
-          <div className="pd-divider" />
+        <section className="pd-story-grid">
+          <section className="pd-section-card pd-section-card--story">
+            <span className="pd-section-kicker">Product overview</span>
+            <h2>Less clutter, more clarity.</h2>
+            <p className="pd-long-copy">
+              {"A refined botanical formula designed to bring more clarity and calm to everyday hair care."}
+            </p>
+          </section>
 
-          {/* Quantity */}
-          <div className="pd-qty-block">
-            <div className="pd-section-label">Quantity</div>
-            <div className="pd-qty-row">
-              <button className="pd-qty-btn" onClick={decQty} disabled={quantity <= 1} aria-label="Decrease">−</button>
-              <span className="pd-qty-val">{quantity}</span>
-              <button className="pd-qty-btn" onClick={incQty} aria-label="Increase">+</button>
-            </div>
-          </div>
+          <section className="pd-section-card pd-section-card--story">
+            <span className="pd-section-kicker">How it fits your routine</span>
+            <h2>Built for everyday repetition.</h2>
+            <ul className="pd-routine-list">
+              <li>Use consistently instead of stacking too many products.</li>
+              <li>Keep the routine simple so the product has room to perform.</li>
+              <li>Look for gradual support over time, not instant change.</li>
+              <li>Pair with a steady care habit for the best overall experience.</li>
+            </ul>
+          </section>
+        </section>
+      </main>
 
-          {/* Desktop CTAs */}
-          <div className="pd-cta-block">
-            <div className="pd-cta-row">
-              <button className="pd-btn pd-btn-soft" onClick={addToCart}>
-                🛒 Add to Cart
-              </button>
-              <button className="pd-btn pd-btn-primary" onClick={() => setShowBuy(true)}>
-                ⚡ Buy Now
-              </button>
-            </div>
-          </div>
+      <Footer />
 
-          {/* Delivery note */}
-          <div className="pd-delivery-note">
-            🚚 Estimated delivery in 3–5 business days
-          </div>
-
-          <div className="pd-divider" />
-
-          {/* Description */}
-          <div className="pd-desc-block">
-            <div className="pd-section-label">About this product</div>
-            <p className="pd-desc">{product.description || "No description available."}</p>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── Mobile Bottom Bar ── */}
       <div className="pd-bottomBar">
         <div className="pd-bottom-info">
           <div className="pd-bottom-price">
             <span className="pd-bottom-label">Total</span>
-            <span className="pd-bottom-total">₹{totalPrice.toLocaleString("en-IN")}</span>
+            <span className="pd-bottom-total">Rs {totalPrice.toLocaleString("en-IN")}</span>
           </div>
           <div className="pd-bottom-qty">
-            <button className="pd-mini-btn" onClick={decQty} disabled={quantity <= 1}>−</button>
+            <button className="pd-mini-btn" onClick={decQty} disabled={quantity <= 1}>-</button>
             <span className="pd-mini-val">{quantity}</span>
             <button className="pd-mini-btn" onClick={incQty}>+</button>
           </div>
         </div>
         <div className="pd-bottom-btns">
-          <button className="pd-btn pd-btn-soft pd-bottom-btn" onClick={addToCart}>Add to Cart</button>
-          <button className="pd-btn pd-btn-primary pd-bottom-btn" onClick={() => setShowBuy(true)}>Buy Now ⚡</button>
+          <button className="pd-btn pd-btn-soft pd-bottom-btn" onClick={addToCart} disabled={isAvailableSoon}>Add to Cart</button>
+          <button className="pd-btn pd-btn-primary pd-bottom-btn" onClick={() => setShowBuy(true)} disabled={isAvailableSoon}>
+            {isAvailableSoon ? "Coming Soon" : "Buy Now"}
+          </button>
         </div>
       </div>
 
-      {/* ── Buy Modal ── */}
       <BuyModal
         open={showBuy}
         onClose={() => setShowBuy(false)}

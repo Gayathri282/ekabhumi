@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchMyOrders, fetchOrderByToken, fetchProducts } from "../api/publicAPI";
+import BuyModal from "../components/Buy";
+import PublicNavbar from "../components/PublicNavbar";
+import Footer from "./Footer";
 import "./Account.css";
 
 /* ── helpers ── */
@@ -351,6 +354,7 @@ export default function Account() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
+  const [checkoutItem, setCheckoutItem] = useState(null);
   const [tab, setTab] = useState("orders"); // "orders" | "cart"
 
   const isLoggedIn = Boolean(accessToken);
@@ -457,6 +461,8 @@ export default function Account() {
 
   return (
     <div className="ac-page">
+      <PublicNavbar />
+
       <header className="ac-topbar">
         <button className="ac-back-btn" onClick={() => navigate("/")}>
           ← Home
@@ -601,7 +607,7 @@ export default function Account() {
                       className="ac-cart-primary-btn"
                       onClick={() => {
                         const first = cart[0];
-                        if (first?.id) navigate(`/products/${first.id}`);
+                        if (first?.id) setCheckoutItem(first);
                       }}
                     >
                       Proceed
@@ -615,6 +621,21 @@ export default function Account() {
       </div>
 
       {selected && <OrderSheet order={selected} onClose={() => setSelected(null)} />}
+      <BuyModal
+        open={Boolean(checkoutItem)}
+        onClose={() => setCheckoutItem(null)}
+        product={checkoutItem}
+        quantity={Number(checkoutItem?.qty || 1)}
+        onSuccess={() => {
+          if (checkoutItem?.id) {
+            removeFromCart(checkoutItem.id);
+          }
+          setCheckoutItem(null);
+          setTab("orders");
+          load();
+        }}
+      />
+      <Footer />
     </div>
   );
 }

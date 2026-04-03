@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import "./Buy.css";
 
 import { createOrder, createRazorpayOrder, verifyRazorpayPayment } from "../api/publicAPI";
-import { hasSession } from "../api/authAPI";
+import { googleLogin, hasSession } from "../api/authAPI";
+
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 // UI-only shipping estimate (backend is source of truth)
 const getShippingCharge = (pincode) => {
@@ -38,6 +40,27 @@ const getShippingCharge = (pincode) => {
 // ── Login Gate Modal ──────────────────────────────────────────────────────────
 const LoginGate = ({ onClose, onLoginSuccess }) => {
   const googleBtnRef = useRef(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const persistUser = useCallback((data) => {
+    const user = data?.role === "admin"
+      ? {
+          role: "admin",
+          email: data.email,
+          name: data.name || "",
+          picture: data.picture || null,
+        }
+      : {
+          role: "user",
+          email: data.email,
+          name: data.name || data.email?.split("@")[0] || "",
+          picture: data.picture || null,
+        };
+
+    localStorage.setItem("accessToken", data.access_token);
+    localStorage.setItem("userData", JSON.stringify(user));
+  }, []);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -46,17 +69,67 @@ const LoginGate = ({ onClose, onLoginSuccess }) => {
   }, []);
 
   useEffect(() => {
-    if (!googleBtnRef.current || !window.google?.accounts?.id) return;
-    const t = setTimeout(() => {
+    let active = true;
+    let existingScript = null;
+
+    const initGoogle = () => {
+      if (!active || !googleBtnRef.current || !window.google?.accounts?.id || !GOOGLE_CLIENT_ID) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (resp) => {
+          if (!resp?.credential) return;
+          setLoginLoading(true);
+          try {
+            const data = await googleLogin(resp.credential);
+            persistUser(data);
+            onLoginSuccess?.();
+          } catch (e) {
+            alert(e?.message || "Login failed");
+          } finally {
+            if (active) {
+              setLoginLoading(false);
+            }
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         theme: "outline",
         size: "large",
         text: "signin_with",
         width: 240,
       });
-    }, 80);
-    return () => clearTimeout(t);
-  }, []);
+      setGoogleReady(true);
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
+      return () => {
+        active = false;
+      };
+    }
+
+    existingScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initGoogle;
+      document.head.appendChild(script);
+      existingScript = script;
+    } else {
+      existingScript.addEventListener("load", initGoogle);
+    }
+
+    return () => {
+      active = false;
+      existingScript?.removeEventListener?.("load", initGoogle);
+    };
+  }, [onLoginSuccess, persistUser]);
 
   // Listen for login success from storage (set by Home's handleCredential)
   useEffect(() => {
@@ -99,13 +172,31 @@ const LoginGate = ({ onClose, onLoginSuccess }) => {
           Sign in to Continue
         </h2>
         <p style={{ color: "#666", fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
-          Please sign in with Google to place your order and track it later.
+          Please sign in with Google before billing so we can prefill your details and help you track your order later.
         </p>
 
         {/* Google Sign In Button */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
           <div ref={googleBtnRef} />
         </div>
+
+        {!GOOGLE_CLIENT_ID && (
+          <p style={{ color: "#b84e4e", fontSize: 13, marginBottom: 16 }}>
+            Google sign-in is not configured for this build.
+          </p>
+        )}
+
+        {GOOGLE_CLIENT_ID && !googleReady && !loginLoading && (
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>
+            Loading Google sign-in...
+          </p>
+        )}
+
+        {loginLoading && (
+          <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>
+            Signing you in...
+          </p>
+        )}
 
         <button
           onClick={onClose}
@@ -156,7 +247,7 @@ const BuyModal = ({ open, onClose, product, quantity, onSuccess }) => {
     if (!open) return;
     setPayableAmount(null);
     verifiedRef.current = false;
-    setShowLoginGate(false);
+    setShowLoginGate(!hasSession());
 
     // ── Auto-prefill email from logged-in user ──
     try {

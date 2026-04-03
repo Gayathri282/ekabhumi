@@ -1,14 +1,3 @@
-// ProductSection.jsx
-// Drop-in replacement for the <section id="products"> block in Home.jsx
-// Props:
-//   products     — full sorted+filtered array from Home
-//   loading      — bool
-//   error        — string
-//   search       — string
-//   onSearch     — setter fn
-//   onNavigate   — navigate fn from useNavigate()
-//   isLoggedIn   — bool (gates "View Details" like Products.jsx does)
-
 import { useRef } from "react";
 import "./ProductSection.css";
 
@@ -26,7 +15,6 @@ function resolveImg(p) {
   return p.image_url.startsWith("http") ? p.image_url : `${API_BASE}${p.image_url}`;
 }
 
-/* ── Shared navigation handler: blocks soon only ── */
 function useGoProduct(onNavigate, isLoggedIn) {
   return (p) => {
     if (isSoon(p)) return;
@@ -34,56 +22,64 @@ function useGoProduct(onNavigate, isLoggedIn) {
   };
 }
 
-/* ════════════════════════════════════════════════════════
-   LAYOUT 1 — Cinematic single-product feature card
-   ════════════════════════════════════════════════════════ */
+function formatPrice(price) {
+  return parseFloat(price || 0).toFixed(2);
+}
+
 function FeatureSingle({ product, goProduct }) {
   const soon = isSoon(product);
 
   return (
-    <div className="feature-single">
-      {/* Image pane */}
+    <article className="feature-single">
       <div className="feature-single__img-pane">
-        <img src={resolveImg(product)} alt={product.name} onError={imgFallback} />
-        {soon && <div className="feature-single__soon">Available Soon</div>}
+        <img src="/images/ro.png" alt={product.name} onError={imgFallback} />
+        <div className="feature-single__badges">
+          <span className="ps-status-badge ps-status-badge--accent">Best Pick</span>
+          {soon && <span className="ps-status-badge ps-status-badge--muted">Available Soon</span>}
+        </div>
       </div>
 
-      {/* Info pane */}
       <div className="feature-single__info">
-        <div className="feature-single__label">Featured Product</div>
-        <h2 className="feature-single__name">{product.name}</h2>
-        {product.description && (
-          <p className="feature-single__desc">
-            {product.description.slice(0, 140)}
-            {product.description.length > 140 ? "…" : ""}
-          </p>
-        )}
-        <div className="feature-single__price">
-          <span>₹</span>{parseFloat(product.price || 0).toFixed(2)}
+        <span className="feature-single__label">Featured Product</span>
+        <h3 className="feature-single__name">{product.name}</h3>
+        <p className="feature-single__desc">
+          {product.description
+            ? `${product.description.slice(0, 180)}${product.description.length > 180 ? "…" : ""}`
+            : "Thoughtfully crafted botanical care designed to support a cleaner, more nourishing hair routine."}
+        </p>
+
+        <div className="feature-single__meta">
+          <div className="feature-single__price-wrap">
+            <span className="feature-single__price-label">Starting from</span>
+            <div className="feature-single__price">
+              <span>₹</span>
+              {formatPrice(product.price)}
+            </div>
+          </div>
+
+          <button
+            className="feature-single__btn"
+            disabled={soon}
+            onClick={() => goProduct(product)}
+            type="button"
+          >
+            {soon ? "Coming Soon" : "View Details"}
+            {!soon && <span className="feature-single__btn-arrow">→</span>}
+          </button>
         </div>
-        <button
-          className="feature-single__btn"
-          disabled={soon}
-          onClick={() => goProduct(product)}
-        >
-          {soon ? "Coming Soon" : "View Details"}
-          {!soon && <span className="feature-single__btn-arrow">→</span>}
-        </button>
       </div>
-    </div>
+    </article>
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   LAYOUT 2–3 — Editorial grid
-   ════════════════════════════════════════════════════════ */
 function FeatureGrid({ products, goProduct }) {
   return (
     <div className={`feature-grid feature-grid--${products.length}`}>
       {products.map((p, i) => {
         const soon = isSoon(p);
+
         return (
-          <div
+          <article
             key={p.id}
             className="feature-grid-card"
             style={{ animationDelay: `${i * 0.08}s` }}
@@ -91,28 +87,38 @@ function FeatureGrid({ products, goProduct }) {
           >
             <div className="feature-grid-card__img">
               <img src={resolveImg(p)} alt={p.name} onError={imgFallback} loading="lazy" />
-              {soon && <div className="feature-grid-card__soon">Soon</div>}
+              <div className="feature-grid-card__overlay" />
+              <div className="feature-grid-card__badges">
+                <span className="ps-status-badge ps-status-badge--soft">Botanical Care</span>
+                {soon && <span className="ps-status-badge ps-status-badge--muted">Soon</span>}
+              </div>
             </div>
-            <div className="feature-grid-card__info">
-              <div className="feature-grid-card__name">{p.name}</div>
+
+            <div className="feature-grid-card__content">
+              <div className="feature-grid-card__copy">
+                <h3 className="feature-grid-card__name">{p.name}</h3>
+                <p className="feature-grid-card__price">₹ {formatPrice(p.price)}</p>
+              </div>
+
               <button
                 className="feature-grid-card__btn"
                 disabled={soon}
-                onClick={(e) => { e.stopPropagation(); goProduct(p); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goProduct(p);
+                }}
+                type="button"
               >
                 {soon ? "Coming Soon" : "View Details"}
               </button>
             </div>
-          </div>
+          </article>
         );
       })}
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   LAYOUT 4+ — Scrolling carousel
-   ════════════════════════════════════════════════════════ */
 function Carousel({ products, goProduct }) {
   const trackRef = useRef(null);
 
@@ -120,52 +126,74 @@ function Carousel({ products, goProduct }) {
     const el = trackRef.current;
     if (!el) return;
     const card = el.querySelector(".ps-carousel-card");
-    const step = card ? card.getBoundingClientRect().width + 16 : el.clientWidth * 0.85;
+    const step = card ? card.getBoundingClientRect().width + 20 : el.clientWidth * 0.85;
     el.scrollBy({ left: dir === "next" ? step : -step, behavior: "smooth" });
   };
 
   return (
-    <div className="ps-carousel">
-      <button className="ps-arrow ps-arrow--prev" onClick={() => scroll("prev")} type="button" aria-label="Previous">‹</button>
+    <div className="ps-carousel-shell">
+      <div className="ps-carousel-head">
+        <div>
+          <span className="ps-carousel-kicker">Curated for your routine</span>
+          <p className="ps-carousel-note">Explore the complete range and tap into details for ingredients, benefits, and usage.</p>
+        </div>
+
+        <div className="ps-carousel-actions">
+          <button className="ps-arrow ps-arrow--prev" onClick={() => scroll("prev")} type="button" aria-label="Previous products">
+            ‹
+          </button>
+          <button className="ps-arrow ps-arrow--next" onClick={() => scroll("next")} type="button" aria-label="Next products">
+            ›
+          </button>
+        </div>
+      </div>
+
       <div className="ps-carousel-track" ref={trackRef}>
         {products.map((p) => {
           const soon = isSoon(p);
+
           return (
-            <div
-              key={p.id}
-              className="ps-carousel-card"
-              onClick={() => goProduct(p)}
-            >
-              {soon && <div className="ps-carousel-card__soon">Available Soon</div>}
-              <img
-                src={resolveImg(p)}
-                alt={p.name}
-                className="ps-carousel-card__img"
-                onError={imgFallback}
-                loading="lazy"
-              />
+            <article key={p.id} className="ps-carousel-card" onClick={() => goProduct(p)}>
+              <div className="ps-carousel-card__media">
+                <img
+                  src={resolveImg(p)}
+                  alt={p.name}
+                  className="ps-carousel-card__img"
+                  onError={imgFallback}
+                  loading="lazy"
+                />
+                <div className="ps-carousel-card__badges">
+                  <span className="ps-status-badge ps-status-badge--soft">Clean Formula</span>
+                  {soon && <span className="ps-status-badge ps-status-badge--muted">Available Soon</span>}
+                </div>
+              </div>
+
               <div className="ps-carousel-card__info">
-                <span className="ps-carousel-card__name">{p.name}</span>
+                <div className="ps-carousel-card__copy">
+                  <h3 className="ps-carousel-card__name">{p.name}</h3>
+                  <p className="ps-carousel-card__price">₹ {formatPrice(p.price)}</p>
+                </div>
+
                 <button
                   className="ps-carousel-card__btn"
                   disabled={soon}
-                  onClick={(e) => { e.stopPropagation(); goProduct(p); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goProduct(p);
+                  }}
+                  type="button"
                 >
-                  View Details
+                  {soon ? "Coming Soon" : "View Details"}
                 </button>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
-      <button className="ps-arrow ps-arrow--next" onClick={() => scroll("next")} type="button" aria-label="Next">›</button>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════
-   MAIN EXPORT
-   ════════════════════════════════════════════════════════ */
 export default function ProductSection({
   products,
   loading,
@@ -173,60 +201,88 @@ export default function ProductSection({
   search,
   onSearch,
   onNavigate,
-  isLoggedIn = false,   // ← pass this from Home
+  isLoggedIn = false,
 }) {
-  const count      = products.length;
-  const goProduct  = useGoProduct(onNavigate, isLoggedIn);
+  const count = products.length;
+  const goProduct = useGoProduct(onNavigate, isLoggedIn);
+  const hasSearch = count >= 4;
 
   return (
     <section id="products" className="products-section">
       <div className="products-section-inner">
+        <div className="ps-header">
+          <span className="ps-eyebrow">Botanical Performance Range</span>
+          <h2 className="ps-title">Products crafted for healthier-looking hair</h2>
+          <p className="ps-subtitle">
+            A refined collection of science-backed botanical essentials designed to nourish the scalp, strengthen strands, and elevate everyday care.
+          </p>
 
-        {/* Search — only useful with 4+ products */}
-        {count >= 4 && (
+          <div className="ps-header-pills">
+            <span className="ps-header-pill">Premium botanical blends</span>
+            <span className="ps-header-pill">Gentle daily ritual</span>
+            <span className="ps-header-pill">Visible care, minimal routine</span>
+          </div>
+        </div>
+
+        {hasSearch && (
           <div className="ps-search-wrap">
             <div className="ps-search-box">
-              <svg className="ps-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="ps-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
+
               <input
                 className="ps-search-input"
                 type="text"
-                placeholder="Search products…"
+                placeholder="Search the collection"
                 value={search}
-                onChange={e => onSearch(e.target.value)}
+                onChange={(e) => onSearch(e.target.value)}
+                aria-label="Search products"
               />
+
               {search && (
-                <button className="ps-search-clear" onClick={() => onSearch("")} aria-label="Clear">×</button>
+                <button className="ps-search-clear" onClick={() => onSearch("")} aria-label="Clear search" type="button">
+                  ×
+                </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Status */}
-        {error   && <div className="ps-error">⚠️ {error}</div>}
-        {loading && <div className="ps-loading">Loading products…</div>}
-
-        {!loading && count === 0 && !error && (
-          <div className="ps-empty">
-            {search ? `No products found for "${search}"` : "No products available yet."}
+        {error && (
+          <div className="ps-state-card ps-state-card--error">
+            <div className="ps-state-icon">⚠</div>
+            <div>
+              <h3>Unable to load products</h3>
+              <p>{error}</p>
+            </div>
           </div>
         )}
 
-        {/* Layout decision */}
-        {!loading && count === 1 && (
-          <FeatureSingle product={products[0]} goProduct={goProduct} />
+        {loading && (
+          <div className="ps-state-card ps-state-card--loading">
+            <div className="ps-loader" aria-hidden="true" />
+            <div>
+              <h3>Loading products</h3>
+              <p>Please wait while we prepare the collection for you.</p>
+            </div>
+          </div>
         )}
 
-        {!loading && count >= 2 && count <= 3 && (
-          <FeatureGrid products={products} goProduct={goProduct} />
+        {!loading && count === 0 && !error && (
+          <div className="ps-state-card ps-state-card--empty">
+            <div className="ps-state-icon">⌕</div>
+            <div>
+              <h3>{search ? "No matching products found" : "Products will appear here soon"}</h3>
+              <p>{search ? `We couldn’t find anything for "${search}". Try a broader keyword.` : "We’re preparing more additions to the collection. Please check back shortly."}</p>
+            </div>
+          </div>
         )}
 
-        {!loading && count >= 4 && (
-          <Carousel products={products} goProduct={goProduct} />
-        )}
-
+        {!loading && count === 1 && <FeatureSingle product={products[0]} goProduct={goProduct} />}
+        {!loading && count >= 2 && count <= 3 && <FeatureGrid products={products} goProduct={goProduct} />}
+        {!loading && count >= 4 && <Carousel products={products} goProduct={goProduct} />}
       </div>
     </section>
   );
