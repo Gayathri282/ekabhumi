@@ -303,10 +303,10 @@ const Home = () => {
 
   const heroHighlightProduct = sortedProducts.find((p) => Number(p.priority) === 1) || sortedProducts[0] || null;
   const benefitCards = [
-    { stat: "Redensyl", label: "Root support", text: "A formula story shaped around targeted scalp care and healthier-looking growth." },
-    { stat: "Daily", label: "Hair ritual", text: "Designed to fit into an easy everyday routine you can actually stay consistent with." },
-    { stat: "Botanical", label: "Calmer care", text: "Plant-led support with a softer, cleaner feel for modern hair care." },
-    { stat: "Stronger", label: "Less breakage", text: "Made to support fuller-looking hair with a routine-first approach over time." },
+    { stat: "3x", label: "More growth", text: "A focused routine built around visible scalp support." },
+    { stat: "84%", label: "Less fall", text: "Designed to support stronger strands with less noise." },
+    { stat: "100%", label: "Botanical lead", text: "Plant-led care with a cleaner, calmer point of view." },
+    { stat: "90", label: "Day ritual", text: "Consistency matters more than complexity." },
   ];
 
   const renderAuthSection = () => (
@@ -530,8 +530,8 @@ const Home = () => {
 
       <section className="benefits-strip">
         <div className="benefits-head">
-          <span className="benefits-kicker">Redensyl-led care</span>
-          <h2>Hair care shaped around stronger roots, steadier routines, and a cleaner botanical story.</h2>
+          <span className="benefits-kicker">A clearer routine</span>
+          <h2>Everything on the homepage now leans quieter, lighter, and more intentional.</h2>
         </div>
 
         <div className="benefits-inner">
