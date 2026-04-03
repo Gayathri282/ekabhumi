@@ -41,7 +41,7 @@ function AdminDashboard() {
   const [searchReviews,  setSearchReviews]  = useState("");
 
   const [newProduct, setNewProduct] = useState({
-    name: "", price: "", description: "", priority: "1", quantity: "0", image: null,
+    name: "", price: "",original_price: "", description: "", priority: "1", quantity: "0", image: null,
   });
 
   const API_BASE = useMemo(
