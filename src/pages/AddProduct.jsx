@@ -17,7 +17,9 @@ function AddProduct({
 
   const validate = () => {
     if (!newProduct.name?.trim()) return "Name is required";
-    if (!newProduct.price || newProduct.price <= 0) return "Valid price required";
+
+    if (!newProduct.price || newProduct.price <= 0)
+      return "Valid price required";
 
     if (
       newProduct.original_price &&
@@ -26,7 +28,8 @@ function AddProduct({
       return "MRP must be greater than selling price";
     }
 
-    if (newProduct.quantity < 0) return "Quantity cannot be negative";
+    if (newProduct.quantity < 0)
+      return "Quantity cannot be negative";
 
     return "";
   };
@@ -38,7 +41,17 @@ function AddProduct({
     const msg = validate();
     if (msg) return setError(msg);
 
-    handleAddProduct(e);
+    // ✅ CRITICAL FIX: send null instead of ""
+    const payload = {
+      ...newProduct,
+      original_price:
+        newProduct.original_price === "" ||
+        newProduct.original_price === undefined
+          ? null
+          : newProduct.original_price,
+    };
+
+    handleAddProduct(payload);
   };
 
   return (
@@ -65,7 +78,8 @@ function AddProduct({
               value={newProduct.price ?? ""}
               onChange={(e) =>
                 update({
-                  price: e.target.value === "" ? "" : Number(e.target.value),
+                  price:
+                    e.target.value === "" ? "" : Number(e.target.value),
                 })
               }
               required
@@ -101,7 +115,12 @@ function AddProduct({
         <div className="grid2">
           <div className="formGroup">
             <label>Featured</label>
-            <div onClick={() => update({ priority: isFeatured ? 2 : 1 })}>
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                update({ priority: isFeatured ? 2 : 1 })
+              }
+            >
               {isFeatured ? "Yes" : "No"}
             </div>
           </div>
@@ -136,6 +155,7 @@ function AddProduct({
         {/* Buttons */}
         <div className="formButtons">
           <button type="submit">Add Product</button>
+
           <button
             type="button"
             onClick={() => {
