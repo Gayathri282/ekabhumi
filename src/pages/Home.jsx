@@ -486,8 +486,8 @@ const Home = () => {
                 <span className="hero-eyebrow">Eka Bhumih x Redensyl</span>
                 <h1 className="hero-heading">Hair care shaped by roots, ritual, and Redensyl.</h1>
                 <p className="hero-sub">
-                  Eka Bhumih brings Redensyl into a more thoughtful everyday ritual with
-                  focused scalp support, botanical softness, and a cleaner path to healthier looking hair.
+                  Eka Bhumih brings Redensyl led hair care into a calmer, cleaner routine
+                  with fewer steps, softer visuals, and ingredients that stay in focus.
                 </p>
 
                 <div className="hero-cta-row">
@@ -501,8 +501,8 @@ const Home = () => {
 
                 <div className="hero-insight-row">
                   <div className="hero-insight-card">
-                    <span>Our formula story</span>
-                    <strong>Redensyl support with a botanical care perspective</strong>
+                    <span>Focused formula</span>
+                    <strong>Science backed and botanical led</strong>
                   </div>
                   <div className="hero-insight-card">
                     <span>Our daily ritual</span>
@@ -530,8 +530,8 @@ const Home = () => {
 
       <section className="benefits-strip">
         <div className="benefits-head">
-          <span className="benefits-kicker">Our Redensyl approach</span>
-          <h2>Eka Bhumih is built around calmer hair rituals, cleaner formulas, and root focused everyday care.</h2>
+          <span className="benefits-kicker">Our Redensyl routine</span>
+          <h2>Healthier looking roots, and a calmer everyday hair ritual.</h2>
         </div>
 
         <div className="benefits-inner">

@@ -3,7 +3,7 @@ import "./About.css";
 import { useNavigate } from "react-router-dom";
 
 const HIGHLIGHTS = [
-  { icon: "🌿", label: "Plant-derived DHQG" },
+  { icon: "🌿", label: "Plant derived DHQG" },
   { icon: "🔬", label: "Clinically Validated" },
   { icon: "✅", label: "Safe for All Hair Types" },
   { icon: "⚡", label: "No Hormonal Side Effects" },
@@ -36,7 +36,7 @@ const About = () => {
             <p className="about-body">
               Redensyl is a patented hair growth compound that targets hair follicle
               stem cells (ORS cells) at the root of the problem. Unlike conventional
-              treatments, it reactivates dormant follicles without hormonal disruption —
+              treatments, it reactivates dormant follicles without hormonal disruption 
               working in harmony with your body's natural growth cycle.
             </p>
             <p className="about-body">

@@ -10,7 +10,7 @@ import "./ProductDetails.css";
 const PRODUCT_COMPARE_ROWS = [
   {
     label: "Formula direction",
-    ours: "Botanical-led care designed for a cleaner, calmer routine.",
+    ours: "Botanical led care designed for a cleaner, calmer routine.",
     typical: "Often built around generic positioning with less emphasis on ritual.",
   },
   {
@@ -25,7 +25,7 @@ const PRODUCT_COMPARE_ROWS = [
   },
   {
     label: "Ingredient story",
-    ours: "Redensyl-focused with a botanical, modern-care identity.",
+    ours: "Redensyl focused with a botanical, modern care identity.",
     typical: "Broader claims without a clearly framed hero active.",
   },
 ];
@@ -44,7 +44,7 @@ const RESULTS_STEPS = [
   {
     phase: "Weeks 8-12",
     title: "Visible support",
-    copy: "With consistent use, users often look for fuller-looking, healthier-feeling hair over time.",
+    copy: "With consistent use, users often look for fuller looking, healthier feeling hair over time.",
   },
 ];
 
@@ -319,7 +319,7 @@ const ProductDetails = () => {
                   )}
                 </div>
                 <div className="pd-price-note">
-                  {isAvailableSoon ? "Launching soon" : "Limited offer on our Redensyl-led everyday care formula"}
+                  {isAvailableSoon ? "Launching soon" : "Limited offer on our Redensyl led everyday care formula"}
                 </div>
               </div>
 
