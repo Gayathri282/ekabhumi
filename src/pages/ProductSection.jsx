@@ -53,12 +53,18 @@ function FeatureSingle({ product, goProduct }) {
               <span>Rs</span>
               {formatCurrency(pricing.offerPrice)}
             </div>
-            <div className="feature-single__price-meta">
-              <span className="feature-single__price-original">MRP Rs {formatCurrency(pricing.basePrice)}</span>
-              {pricing.hasDiscount && (
-                <span className="feature-single__discount">{pricing.discountPercent}% off</span>
-              )}
-            </div>
+           <div className="feature-single__price-meta">
+  {pricing.hasDiscount && (
+    <>
+      <span className="feature-single__price-original">
+        MRP Rs {formatCurrency(pricing.basePrice)}
+      </span>
+      <span className="feature-single__discount">
+        {pricing.discountPercent}% off
+      </span>
+    </>
+  )}
+</div>
           </div>
 
           <button
@@ -104,11 +110,17 @@ function FeatureGrid({ products, goProduct }) {
                 <h3 className="feature-grid-card__name">{p.name}</h3>
                 <p className="feature-grid-card__price">Rs {formatCurrency(pricing.offerPrice)}</p>
                 <div className="feature-grid-card__price-row">
-                  <span className="feature-grid-card__price-original">MRP Rs {formatCurrency(pricing.basePrice)}</span>
-                  {pricing.hasDiscount && (
-                    <span className="feature-grid-card__discount">{pricing.discountPercent}% off</span>
-                  )}
-                </div>
+  {pricing.hasDiscount && (
+    <>
+      <span className="feature-grid-card__price-original">
+        MRP Rs {formatCurrency(pricing.basePrice)}
+      </span>
+      <span className="feature-grid-card__discount">
+        {pricing.discountPercent}% off
+      </span>
+    </>
+  )}
+</div>
               </div>
 
               <button
