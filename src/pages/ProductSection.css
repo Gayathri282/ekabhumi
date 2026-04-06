@@ -879,3 +879,32 @@
     height: 42px;
   }
 }
+
+/* Ensure the price rows don't collapse or overlap */
+.feature-single__price-meta,
+.feature-grid-card__price-row,
+.ps-carousel-card__price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px; /* Prevents layout jump when discount exists */
+  margin-top: 4px;
+}
+
+/* Make sure the crossed-out price is clearly legible but subtle */
+.feature-single__price-original,
+.feature-grid-card__price-original,
+.ps-carousel-card__price-original {
+  text-decoration: line-through;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+/* Ensure the discount badge doesn't get too big on small screens */
+.feature-single__discount,
+.feature-grid-card__discount,
+.ps-carousel-card__discount {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
