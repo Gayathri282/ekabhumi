@@ -308,15 +308,23 @@ const ProductDetails = () => {
                 <div className="pd-price-copy">
                   <div className="pd-price-label">Offer Price</div>
                   <div className="pd-price">Rs {formatCurrency(currentPrice)}</div>
-                  <div className="pd-price-meta">
-                    <span className="pd-price-original">MRP Rs {formatCurrency(originalPrice)}</span>
-                    {discountPercent > 0 && (
-                      <span className="pd-discount-pill">{discountPercent}% off</span>
-                    )}
-                  </div>
-                  {savingsAmount > 0 && (
-                    <div className="pd-price-save">You save Rs {formatCurrency(savingsAmount)}</div>
-                  )}
+                   <div className="pd-price-meta">
+  {pricing.hasDiscount && (
+    <>
+      <span className="pd-price-original">
+        MRP Rs {formatCurrency(originalPrice)}
+      </span>
+      <span className="pd-discount-pill">
+        {discountPercent}% off
+      </span>
+    </>
+  )}
+</div>
+                  {pricing.hasDiscount && (
+  <div className="pd-price-save">
+    You save Rs {formatCurrency(savingsAmount)}
+  </div>
+)}
                 </div>
                 <div className="pd-price-note">
                   {isAvailableSoon ? "Launching soon" : "Limited offer on our Redensyl led everyday care formula"}
