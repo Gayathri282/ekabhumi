@@ -234,7 +234,8 @@ export default function ProductSection({
   onSearch,
   onNavigate,
   isLoggedIn = false,
-}) console.log("PRODUCTS DATA:", products); {
+}) {
+   console.log("PRODUCTS DATA:", products);
   const count = products.length;
   const goProduct = useGoProduct(onNavigate, isLoggedIn);
   const hasSearch = count >= 4;
