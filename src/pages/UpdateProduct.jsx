@@ -8,18 +8,18 @@ export default function UpdateProduct({
   setError,
 }) {
   const initial = useMemo(
-    () => ({
-      id: product?.id,
-      name: product?.name || "",
-      price: product?.price ?? "",
-      original_price: product?.original_price ?? "",
-      description: product?.description || "",
-      priority: product?.priority ?? 2,
-      quantity: product?.quantity ?? 0,
-      image_url: product?.image_url || "",
-    }),
-    [product]
-  );
+  () => ({
+    id: product?.id,
+    name: product?.name || "",
+    price: product?.price ?? "",
+    original_price: product?.original_price ?? "",
+    description: product?.description || "",
+    priority: product?.priority ?? 2,
+    quantity: product?.quantity ?? 0,
+    image_url: product?.image_url || "",
+  }),
+  [product]
+);
 
   const [form, setForm] = useState(initial);
   const [imageFile, setImageFile] = useState(null);
@@ -96,7 +96,8 @@ export default function UpdateProduct({
         id: form.id,
         name: form.name.trim(),
         price: form.price,
-        original_price: form.original_price || null,
+        original_price:
+       form.original_price === "" ? "" : form.original_price,
         description: form.description.trim(),
         priority: form.priority,
         quantity: form.quantity,
