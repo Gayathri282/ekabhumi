@@ -6,10 +6,15 @@ const toNumber = (value) => {
 
 // Main pricing logic (STRICT: data-driven, no fake discounts)
 export function getProductPricing(product) {
-  const offerPrice = toNumber(product?.price);
-  const basePrice = toNumber(product?.original_price) || offerPrice;
+  const offerPrice = Number(product?.price) || 0;
 
-  const hasDiscount = basePrice > offerPrice;
+  const basePrice =
+    product?.original_price != null
+      ? Number(product.original_price)
+      : null;
+
+  const hasDiscount =
+    basePrice && basePrice > offerPrice;
 
   const savings = hasDiscount ? basePrice - offerPrice : 0;
 
