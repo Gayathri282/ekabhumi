@@ -1,40 +1,19 @@
-const DEFAULT_DISCOUNT_RATE = 0.16;
-
+// Convert any value safely to number
 const toNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const roundToNearestTen = (value) => Math.max(0, Math.round(value / 10) * 10);
-
+// Main pricing logic (STRICT: data-driven, no fake discounts)
 export function getProductPricing(product) {
-  const basePrice = toNumber(
-    product?.original_price
-    ?? product?.selling_price
-    ?? product?.compare_at_price
-    ?? product?.mrp
-    ?? product?.list_price
-    ?? product?.price
-  );
+  const offerPrice = toNumber(product?.price);
+  const basePrice = toNumber(product?.original_price) || offerPrice;
 
-  const explicitOffer = toNumber(
-    product?.offer_price
-    ?? product?.sale_price
-    ?? product?.discount_price
-  );
+  const hasDiscount = basePrice > offerPrice;
 
-  const derivedOffer = basePrice > 0
-    ? roundToNearestTen(basePrice * (1 - DEFAULT_DISCOUNT_RATE))
-    : 0;
+  const savings = hasDiscount ? basePrice - offerPrice : 0;
 
-  const offerPrice = explicitOffer > 0 && explicitOffer < basePrice
-    ? explicitOffer
-    : derivedOffer > 0 && derivedOffer < basePrice
-      ? derivedOffer
-      : basePrice;
-
-  const savings = Math.max(0, basePrice - offerPrice);
-  const discountPercent = basePrice > offerPrice && basePrice > 0
+  const discountPercent = hasDiscount
     ? Math.round((savings / basePrice) * 100)
     : 0;
 
@@ -43,10 +22,11 @@ export function getProductPricing(product) {
     offerPrice,
     savings,
     discountPercent,
-    hasDiscount: discountPercent > 0,
+    hasDiscount,
   };
 }
 
+// Currency formatter (Indian format)
 export function formatCurrency(value) {
   return toNumber(value).toLocaleString("en-IN");
 }
